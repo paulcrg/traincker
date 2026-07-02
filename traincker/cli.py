@@ -4,7 +4,26 @@ import argparse
 import sys
 
 from traincker.api_client import NavitiaClient, NavitiaAPIError
+from traincker.monitor import lancer_surveillance
 
+def cmd_recherche(args):
+    """Recherche l'identifiant stop_area d'une gare (à mettre dans favoris.json)."""
+    client = NavitiaClient()
+    stations = client.search_station(args.gare, count=args.count)
+
+    if not stations:
+        print(f"Aucune gare trouvée pour « {args.gare} »")
+        sys.exit(1)
+
+    print(f"Résultats pour « {args.gare} » :\n")
+    for s in stations:
+        print(f"- {s['name']}")
+        print(f"  id: {s['id']}\n")
+
+
+def cmd_surveiller(args):
+    """Lance la boucle de surveillance des trajets favoris (bloquant)."""
+    lancer_surveillance(intervalle_minutes=args.intervalle)
 
 def cmd_gare(args):
     """Affiche les prochains départs pour une gare recherchée par nom."""
@@ -66,6 +85,20 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser_perturb.add_argument("--gare", required=True, help="Nom de la gare")
     parser_perturb.set_defaults(func=cmd_perturbations)
+    parser_recherche = subparsers.add_parser(
+        "recherche", help="Chercher l'identifiant (stop_area_id) d'une gare"
+    )
+    parser_recherche.add_argument("--gare", required=True, help="Nom de la gare à chercher")
+    parser_recherche.add_argument("--count", type=int, default=5, help="Nombre de résultats")
+    parser_recherche.set_defaults(func=cmd_recherche)
+
+    parser_surveiller = subparsers.add_parser(
+        "surveiller", help="Surveille les trajets favoris en continu"
+    )
+    parser_surveiller.add_argument(
+        "--intervalle", type=int, default=5, help="Minutes entre deux vérifications"
+    )
+    parser_surveiller.set_defaults(func=cmd_surveiller)
 
     return parser
 

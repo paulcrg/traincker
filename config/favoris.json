@@ -2,9 +2,9 @@
   "trajets": [
     {
       "nom": "Domicile -> ESEO",
-      "gare_depart_id": "",
+      "gare_depart_id": "stop_area:SNCF:87713529",
       "gare_depart_nom": "Nuits-Saint-Georges",
-      "gare_arrivee_id": "",
+      "gare_arrivee_id": "stop_area:SNCF:87713040",
       "gare_arrivee_nom": "Dijon Ville",
       "actif": true
     }
