@@ -17,6 +17,7 @@ import schedule
 from traincker.api_client import NavitiaClient, NavitiaAPIError
 from traincker.alerts import send_discord_alert, format_perturbation_message
 from traincker.favoris import charger_favoris
+from traincker.collector import historiser_departs
 
 ETAT_PATH = (
     Path(__file__).resolve().parent.parent
@@ -66,6 +67,14 @@ def verifier_favoris(client: NavitiaClient = None) -> None:
         try:
             perturbations = client.get_disruptions(trajet.gare_depart_id)
             perturbations += client.get_disruptions(trajet.gare_arrivee_id)
+
+            # Historisation des départs pour alimenter l'analyse pandas plus tard
+            departs_depart = client.get_next_departures(trajet.gare_depart_id, count=10)
+            historiser_departs(departs_depart, trajet.gare_depart_nom)
+
+            departs_arrivee = client.get_next_departures(trajet.gare_arrivee_id, count=10)
+            historiser_departs(departs_arrivee, trajet.gare_arrivee_nom)
+
         except NavitiaAPIError as e:
             print(f"[{maintenant:%H:%M:%S}] Erreur API pour {trajet.nom} : {e}")
             continue
