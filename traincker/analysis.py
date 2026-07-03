@@ -1,8 +1,8 @@
 """
 Analyse de données de ponctualité avec pandas/numpy.
 
-Ce module attend des données historisées dans data/processed/departures.csv
-avec au minimum les colonnes : ligne, heure_theorique, heure_prevue, statut.
+Ce module lit les données historisées par traincker/collector.py dans
+data/processed/departures.csv.
 """
 
 from pathlib import Path
@@ -10,7 +10,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "processed" / "departures.csv"
+from traincker.collector import CSV_PATH as DATA_PATH
+
+FORMAT_DATE_NAVITIA = "%Y%m%dT%H%M%S"
 
 
 def charger_donnees(path: Path = DATA_PATH) -> pd.DataFrame:
@@ -18,9 +20,14 @@ def charger_donnees(path: Path = DATA_PATH) -> pd.DataFrame:
     if not path.exists():
         raise FileNotFoundError(
             f"Aucune donnée historisée trouvée à {path}. "
-            "Lance d'abord une collecte via cli.py ou dashboard.py."
+            "Lance d'abord `python main.py surveiller` pour collecter des données."
         )
-    df = pd.read_csv(path, parse_dates=["heure_theorique", "heure_prevue"])
+    df = pd.read_csv(path)
+    for col in ["heure_theorique", "heure_prevue"]:
+        df[col] = pd.to_datetime(df[col], format=FORMAT_DATE_NAVITIA, errors="coerce")
+
+    # On enlève les lignes où le parsing a échoué (données corrompues/incomplètes)
+    df = df.dropna(subset=["heure_theorique", "heure_prevue"])
     return df
 
 
