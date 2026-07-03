@@ -2,9 +2,11 @@
 
 import argparse
 import sys
+from pathlib import Path
 
 from traincker.api_client import NavitiaClient, NavitiaAPIError
 from traincker.monitor import lancer_surveillance
+
 
 def cmd_recherche(args):
     """Recherche l'identifiant stop_area d'une gare (à mettre dans favoris.json)."""
@@ -24,6 +26,39 @@ def cmd_recherche(args):
 def cmd_surveiller(args):
     """Lance la boucle de surveillance des trajets favoris (bloquant)."""
     lancer_surveillance(intervalle_minutes=args.intervalle)
+
+
+def cmd_stats(args):
+    """Affiche les statistiques de ponctualité et génère les graphes."""
+    from traincker.analysis import (
+        charger_donnees,
+        stats_ponctualite_par_ligne,
+        tendance_retard_dans_le_temps,
+    )
+    from traincker.viz import graphe_retard_par_ligne, graphe_tendance_temporelle
+
+    try:
+        df = charger_donnees()
+    except FileNotFoundError as e:
+        print(e)
+        sys.exit(1)
+
+    if df.empty:
+        print("Aucune donnée exploitable pour le moment. Laisse la surveillance tourner un peu plus.")
+        return
+
+    stats = stats_ponctualite_par_ligne(df)
+    print("\nStatistiques de ponctualité par ligne :\n")
+    print(stats)
+
+    dossier_sortie = Path("data/processed")
+    graphe_retard_par_ligne(stats, save_path=str(dossier_sortie / "retard_par_ligne.png"))
+
+    tendance = tendance_retard_dans_le_temps(df)
+    graphe_tendance_temporelle(tendance, save_path=str(dossier_sortie / "tendance_retard.png"))
+
+    print(f"\nGraphes sauvegardés dans {dossier_sortie}/")
+
 
 def cmd_gare(args):
     """Affiche les prochains départs pour une gare recherchée par nom."""
@@ -85,6 +120,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser_perturb.add_argument("--gare", required=True, help="Nom de la gare")
     parser_perturb.set_defaults(func=cmd_perturbations)
+
     parser_recherche = subparsers.add_parser(
         "recherche", help="Chercher l'identifiant (stop_area_id) d'une gare"
     )
@@ -99,6 +135,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--intervalle", type=int, default=5, help="Minutes entre deux vérifications"
     )
     parser_surveiller.set_defaults(func=cmd_surveiller)
+
+    parser_stats = subparsers.add_parser(
+        "stats", help="Statistiques de ponctualité et graphes (à partir des données historisées)"
+    )
+    parser_stats.set_defaults(func=cmd_stats)
 
     return parser
 
