@@ -4,15 +4,25 @@ Dashboard Streamlit pour Traincker.
 Lancer avec :
     streamlit run traincker/dashboard.py
 """
+
 import sys
 from pathlib import Path
 
+# Streamlit exécute ce script en ajoutant son propre dossier au sys.path,
+# pas la racine du projet : on l'ajoute nous-mêmes pour que
+# "import traincker.xxx" fonctionne.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import streamlit as st
 
 from traincker.api_client import NavitiaClient, NavitiaAPIError
 from traincker.favoris import charger_favoris
+from traincker.analysis import (
+    charger_donnees,
+    stats_ponctualite_par_ligne,
+    tendance_retard_dans_le_temps,
+)
+from traincker.viz import graphe_retard_par_ligne, graphe_tendance_temporelle
 
 st.set_page_config(page_title="Traincker", page_icon="🚆", layout="centered")
 
@@ -77,8 +87,26 @@ with tab_favoris:
 
 with tab_stats:
     st.subheader("Statistiques de ponctualité")
-    st.info(
-        "Cette section s'active une fois que des données auront été "
-        "historisées dans `data/processed/departures.csv` "
-        "(voir `traincker/analysis.py`)."
-    )
+
+    try:
+        df = charger_donnees()
+    except FileNotFoundError:
+        st.info(
+            "Aucune donnée historisée pour l'instant. Lance "
+            "`python main.py surveiller` un moment pour commencer à collecter des données."
+        )
+    else:
+        if df.empty:
+            st.info("Pas encore assez de données exploitables pour calculer des stats.")
+        else:
+            stats = stats_ponctualite_par_ligne(df)
+            st.dataframe(stats)
+
+            st.subheader("Retard moyen par ligne")
+            fig_retard = graphe_retard_par_ligne(stats)
+            st.pyplot(fig_retard)
+
+            st.subheader("Évolution du retard moyen dans le temps")
+            tendance = tendance_retard_dans_le_temps(df)
+            fig_tendance = graphe_tendance_temporelle(tendance)
+            st.pyplot(fig_tendance)
