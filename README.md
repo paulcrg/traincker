@@ -100,7 +100,7 @@ traincker/
 - [x] Phase 1 — MVP : client API + affichage des prochains départs en CLI
 - [x] Phase 2 — Trajets favoris + détection de perturbation + alertes Discord
 - [x] Phase 3 — Historisation des données + stats pandas/numpy
-- [ ] Phase 4 — Visualisations matplotlib + dashboard Streamlit complet
+- [x] Phase 4 — Visualisations matplotlib + dashboard Streamlit complet
 
 ## Auteur
 
