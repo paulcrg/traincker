@@ -6,6 +6,7 @@ Lancer avec :
 """
 
 import sys
+import base64
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -29,8 +30,22 @@ from traincker.theme import THEME_CSS
 st.set_page_config(page_title="Traincker", page_icon="🚆", layout="centered")
 st.markdown(THEME_CSS, unsafe_allow_html=True)
 
-st.title("🚆 Traincker")
-st.caption("Suivi de tes trains au quotidien")
+_logo_path = Path(__file__).resolve().parent.parent / "assets" / "logo-white.png"
+if _logo_path.exists():
+    _logo_b64 = base64.b64encode(_logo_path.read_bytes()).decode()
+    st.markdown(
+        f'<div class="tk-logo-wrap">'
+        f'<img src="data:image/png;base64,{_logo_b64}" alt="Traincker" style="height:46px;">'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+else:
+    st.title("🚆 Traincker")
+
+st.markdown(
+    '<p class="tk-caption">Suivi de tes trains au quotidien</p>',
+    unsafe_allow_html=True,
+)
 
 tab_recherche, tab_favoris, tab_stats = st.tabs(
     ["🔎 Recherche", "⭐ Mes trajets favoris", "📊 Statistiques"]

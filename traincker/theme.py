@@ -1,9 +1,9 @@
 """
 Thème visuel du dashboard Traincker.
 
-Esthétique "Liquid Glass" : cartes translucides à effet de flou (glassmorphism),
-halos de couleur doux en arrière-plan, typographie Inter — inspiré du langage
-visuel minimaliste d'Apple, appliqué à un dashboard type SaaS.
+Esthétique "Liquid Glass" sur fond sombre : cartes translucides à effet de
+flou (glassmorphism), halos de couleur doux façon lueur ambiante, typographie
+Inter — minimaliste et épuré, inspiré du langage visuel d'Apple en dark mode.
 """
 
 THEME_CSS = """
@@ -11,14 +11,14 @@ THEME_CSS = """
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
-    --tk-bg-1: #eef3fb;
-    --tk-bg-2: #dfe9fa;
-    --tk-glass: rgba(255, 255, 255, 0.55);
-    --tk-glass-border: rgba(255, 255, 255, 0.65);
-    --tk-accent: #2d6cdf;
-    --tk-positive: #2fbf8f;
-    --tk-text: #1b2430;
-    --tk-text-muted: #5b6673;
+    --tk-bg-1: #0a0d12;
+    --tk-bg-2: #161b23;
+    --tk-glass: rgba(255, 255, 255, 0.05);
+    --tk-glass-border: rgba(255, 255, 255, 0.10);
+    --tk-accent: #5b8def;
+    --tk-positive: #34d1a0;
+    --tk-text: #e7ebf1;
+    --tk-text-muted: #8a94a6;
 }
 
 html, body, [data-testid="stAppViewContainer"], .stApp {
@@ -31,25 +31,26 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
     background: transparent;
 }
 
-/* Halos de couleur flous en arrière-plan (signature "liquid glass") */
+/* Halos de couleur flous en arrière-plan (lueur ambiante sur fond sombre) */
 .tk-blob {
     position: fixed;
     border-radius: 50%;
-    filter: blur(90px);
-    opacity: 0.4;
+    filter: blur(100px);
+    opacity: 0.35;
     z-index: 0;
     pointer-events: none;
+    mix-blend-mode: screen;
 }
 .tk-blob-1 {
-    width: 420px; height: 420px;
-    background: #7db8ff;
-    top: -120px; left: -100px;
+    width: 460px; height: 460px;
+    background: #3b6fe0;
+    top: -140px; left: -110px;
     animation: tk-float-1 22s ease-in-out infinite;
 }
 .tk-blob-2 {
-    width: 380px; height: 380px;
-    background: #9be8c9;
-    bottom: -140px; right: -80px;
+    width: 420px; height: 420px;
+    background: #1fa679;
+    bottom: -160px; right: -90px;
     animation: tk-float-2 26s ease-in-out infinite;
 }
 @keyframes tk-float-1 {
@@ -65,24 +66,24 @@ html, body, [data-testid="stAppViewContainer"], .stApp {
     .tk-blob-1, .tk-blob-2 { animation: none; }
 }
 
-h1 {
-    font-weight: 800 !important;
-    letter-spacing: -0.03em;
-    font-size: 2.3rem !important;
-}
-h2, h3 {
+h1, h2, h3 {
     font-weight: 700 !important;
     letter-spacing: -0.02em;
+    color: var(--tk-text);
+}
+
+p, span, label, div {
+    color: var(--tk-text);
 }
 
 /* Cartes en verre : conteneurs créés avec st.container(border=True, key=...) */
 div[class*="st-key-card_"] {
     background: var(--tk-glass) !important;
-    backdrop-filter: blur(18px) saturate(160%);
-    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
     border: 1px solid var(--tk-glass-border) !important;
     border-radius: 20px !important;
-    box-shadow: 0 8px 32px rgba(27, 36, 48, 0.08);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255,255,255,0.04);
     padding: 1.2rem 1.4rem !important;
 }
 
@@ -99,18 +100,18 @@ div[class*="st-key-card_"] {
 .stTabs [data-baseweb="tab"] {
     border-radius: 999px !important;
     font-weight: 600;
-    color: var(--tk-text-muted);
+    color: var(--tk-text-muted) !important;
 }
 .stTabs [aria-selected="true"] {
     background: var(--tk-accent) !important;
-    color: white !important;
+    color: #0a0d12 !important;
 }
 
 /* Boutons */
 .stButton > button {
     border-radius: 999px !important;
     border: 1px solid var(--tk-glass-border) !important;
-    background: rgba(255, 255, 255, 0.6) !important;
+    background: rgba(255, 255, 255, 0.06) !important;
     backdrop-filter: blur(10px);
     color: var(--tk-text) !important;
     font-weight: 600;
@@ -123,21 +124,32 @@ div[class*="st-key-card_"] {
 }
 .stButton > button[kind="primary"] {
     background: var(--tk-accent) !important;
-    color: white !important;
+    color: #0a0d12 !important;
     border: none !important;
 }
 
 /* Champs de saisie / select */
 .stTextInput input, .stSelectbox > div > div {
     border-radius: 14px !important;
-    background: rgba(255, 255, 255, 0.65) !important;
+    background: rgba(255, 255, 255, 0.05) !important;
     border: 1px solid var(--tk-glass-border) !important;
+    color: var(--tk-text) !important;
 }
 
 .block-container {
-    padding-top: 2.5rem;
+    padding-top: 2rem;
     z-index: 1;
     position: relative;
+}
+
+.tk-logo-wrap {
+    text-align: center;
+    margin-bottom: 0.3rem;
+}
+.tk-caption {
+    text-align: center;
+    color: var(--tk-text-muted) !important;
+    margin-bottom: 1.5rem;
 }
 </style>
 
