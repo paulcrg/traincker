@@ -6,6 +6,7 @@ from pathlib import Path
 
 from traincker.api_client import NavitiaClient, NavitiaAPIError
 from traincker.monitor import lancer_surveillance
+from traincker.utils import formater_heure
 
 
 def cmd_recherche(args):
@@ -34,6 +35,7 @@ def cmd_stats(args):
         charger_donnees,
         stats_ponctualite_par_ligne,
         tendance_retard_dans_le_temps,
+        formater_stats_affichage,
     )
     from traincker.viz import graphe_retard_par_ligne, graphe_tendance_temporelle
 
@@ -49,7 +51,7 @@ def cmd_stats(args):
 
     stats = stats_ponctualite_par_ligne(df)
     print("\nStatistiques de ponctualité par ligne :\n")
-    print(stats)
+    print(formater_stats_affichage(stats))
 
     dossier_sortie = Path("data/processed")
     graphe_retard_par_ligne(stats, save_path=str(dossier_sortie / "retard_par_ligne.png"))
@@ -79,7 +81,7 @@ def cmd_gare(args):
 
     for d in departs:
         statut = "⏱️ temps réel" if d["statut"] == "realtime" else "📅 théorique"
-        print(f"[{statut}] {d['ligne']} → {d['direction']} à {d['heure_prevue']}")
+        print(f"[{statut}] {d['ligne']} → {d['direction']} à {formater_heure(d['heure_prevue'])}")
 
 
 def cmd_perturbations(args):

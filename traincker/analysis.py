@@ -64,3 +64,23 @@ def tendance_retard_dans_le_temps(df: pd.DataFrame, freq: str = "D") -> pd.Serie
     df = calculer_retard_minutes(df)
     df = df.set_index("heure_theorique")
     return df["retard_minutes"].resample(freq).mean()
+
+
+def formater_stats_affichage(stats: pd.DataFrame) -> pd.DataFrame:
+    """
+    Formate le DataFrame de stats pour l'affichage (arrondis, noms de
+    colonnes lisibles). Ne modifie pas les données utilisées pour les calculs.
+    """
+    affichage = stats.copy()
+    affichage["retard_moyen"] = affichage["retard_moyen"].round(1)
+    affichage["retard_ecart_type"] = affichage["retard_ecart_type"].round(1)
+    affichage["taux_ponctualite"] = affichage["taux_ponctualite"].round(0).astype(int)
+
+    return affichage.rename(
+        columns={
+            "retard_moyen": "Retard moyen (min)",
+            "retard_ecart_type": "Écart-type (min)",
+            "nb_trains": "Nb trains",
+            "taux_ponctualite": "Ponctualité (%)",
+        }
+    )
