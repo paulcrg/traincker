@@ -7,7 +7,10 @@ Lancer avec :
 
 import sys
 import base64
+import json
+import csv
 from pathlib import Path
+from datetime import datetime
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -26,6 +29,8 @@ from traincker.analysis import (
 )
 from traincker.viz import graphe_retard_par_ligne, graphe_tendance_temporelle
 from traincker.theme import THEME_CSS
+from traincker.monitor import ETAT_PATH
+from traincker.collector import CSV_PATH
 
 st.set_page_config(page_title="Traincker", page_icon="🚆", layout="centered")
 st.markdown(THEME_CSS, unsafe_allow_html=True)
@@ -43,7 +48,61 @@ else:
     st.title("🚆 Traincker")
 
 st.markdown(
-    '<p class="tk-caption">Suivi de tes trains au quotidien</p>',
+    '<p class="tk-caption">Suivi de trains au quotidien</p>',
+    unsafe_allow_html=True,
+)
+
+
+def obtenir_stats_rapides() -> dict:
+    """Petites statistiques d'ensemble affichées en haut du dashboard."""
+    favoris = charger_favoris()
+    nb_actifs = sum(1 for t in favoris if t.actif)
+
+    derniere_collecte = "Aucune"
+    if CSV_PATH.exists():
+        try:
+            with open(CSV_PATH, encoding="utf-8") as f:
+                lignes = list(csv.DictReader(f))
+            if lignes:
+                horodatage = lignes[-1]["horodatage_collecte"]
+                dt = datetime.fromisoformat(horodatage)
+                derniere_collecte = dt.strftime("%d/%m %H:%M")
+        except (KeyError, ValueError, IndexError):
+            pass
+
+    nb_alertes = 0
+    if ETAT_PATH.exists():
+        try:
+            with open(ETAT_PATH, encoding="utf-8") as f:
+                nb_alertes = len(json.load(f))
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    return {
+        "trajets_actifs": nb_actifs,
+        "derniere_collecte": derniere_collecte,
+        "nb_alertes": nb_alertes,
+    }
+
+
+_stats_rapides = obtenir_stats_rapides()
+st.markdown(
+    f"""
+    <div class="tk-chip-row">
+        <div class="tk-chip">
+            <span class="tk-chip-label">Trajets actifs</span>
+            <span class="tk-chip-value">{_stats_rapides['trajets_actifs']}</span>
+        </div>
+        <div class="tk-chip">
+            <span class="tk-chip-label">Dernière collecte</span>
+            <span class="tk-chip-value">{_stats_rapides['derniere_collecte']}</span>
+        </div>
+        <div class="tk-chip">
+            <span class="tk-chip-label">Alertes envoyées</span>
+            <span class="tk-chip-value">{_stats_rapides['nb_alertes']}</span>
+        </div>
+    </div>
+    """,
     unsafe_allow_html=True,
 )
 
@@ -90,9 +149,21 @@ with tab_recherche:
 
                     disruptions = client.get_disruptions(station["id"])
                     if disruptions:
-                        st.error("Perturbations en cours :")
+                        st.markdown(
+                            '<p class="tk-status-line">'
+                            '<span class="tk-dot tk-dot-alert"></span>'
+                            "Perturbations en cours</p>",
+                            unsafe_allow_html=True,
+                        )
                         for p in disruptions:
                             st.write(f"- **{p['titre']}** : {p['message']}")
+                    else:
+                        st.markdown(
+                            '<p class="tk-status-line">'
+                            '<span class="tk-dot tk-dot-ok"></span>'
+                            "Aucune perturbation signalée</p>",
+                            unsafe_allow_html=True,
+                        )
 
             except NavitiaAPIError as e:
                 st.error(f"Erreur API : {e}")
@@ -106,24 +177,31 @@ with tab_favoris:
             st.info("Aucun trajet favori configuré pour l'instant. Ajoutes-en un ci-dessous.")
         else:
             for i, trajet in enumerate(favoris):
-                col_info, col_toggle, col_delete = st.columns([5, 1, 1])
+                col_dot, col_info, col_toggle, col_delete = st.columns([0.4, 4.6, 1, 1])
+
+                with col_dot:
+                    dot_class = "tk-dot-ok" if trajet.actif else "tk-dot-alert"
+                    st.markdown(
+                        f'<span class="tk-dot {dot_class}" style="margin-top:14px;"></span>',
+                        unsafe_allow_html=True,
+                    )
 
                 with col_info:
-                    statut_icone = "✅" if trajet.actif else "⏸️"
                     st.write(
-                        f"{statut_icone} **{trajet.nom}** : "
+                        f"**{trajet.nom}** : "
                         f"{trajet.gare_depart_nom} → {trajet.gare_arrivee_nom}"
                     )
 
                 with col_toggle:
-                    label = "Désactiver" if trajet.actif else "Activer"
-                    if st.button(label, key=f"toggle_{i}"):
+                    icone_toggle = "⏸️" if trajet.actif else "▶️"
+                    aide = "Désactiver ce trajet" if trajet.actif else "Activer ce trajet"
+                    if st.button(icone_toggle, key=f"toggle_{i}", help=aide):
                         favoris[i].actif = not favoris[i].actif
                         sauvegarder_favoris(favoris)
                         st.rerun()
 
                 with col_delete:
-                    if st.button("🗑️ Suppr.", key=f"delete_{i}"):
+                    if st.button("🗑️", key=f"delete_{i}", help="Supprimer ce trajet"):
                         favoris.pop(i)
                         sauvegarder_favoris(favoris)
                         st.rerun()
@@ -147,7 +225,7 @@ with tab_favoris:
             requete_depart = st.text_input(
                 "Rechercher une gare", placeholder="ex: Nuits-Saint-Georges", key="requete_depart"
             )
-            if st.button("Chercher", key="chercher_depart") and requete_depart:
+            if st.button("🔍 Chercher", key="chercher_depart") and requete_depart:
                 try:
                     client = NavitiaClient()
                     st.session_state.recherche_depart = client.search_station(requete_depart)
@@ -169,7 +247,7 @@ with tab_favoris:
             requete_arrivee = st.text_input(
                 "Rechercher une gare", placeholder="ex: Dijon Ville", key="requete_arrivee"
             )
-            if st.button("Chercher", key="chercher_arrivee") and requete_arrivee:
+            if st.button("🔍 Chercher", key="chercher_arrivee") and requete_arrivee:
                 try:
                     client = NavitiaClient()
                     st.session_state.recherche_arrivee = client.search_station(requete_arrivee)

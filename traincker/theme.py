@@ -149,7 +149,94 @@ div[class*="st-key-card_"] {
 .tk-caption {
     text-align: center;
     color: var(--tk-text-muted) !important;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.6rem;
+}
+
+/* Cartes : légère élévation dynamique au survol */
+div[class*="st-key-card_"] {
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+div[class*="st-key-card_"]:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255,255,255,0.05);
+}
+
+/* Chips de statistiques rapides */
+.tk-chip-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 1.4rem;
+}
+.tk-chip {
+    flex: 1;
+    background: var(--tk-glass);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--tk-glass-border);
+    border-radius: 16px;
+    padding: 0.7rem 1rem;
+    text-align: center;
+    transition: transform 0.2s ease;
+}
+.tk-chip:hover {
+    transform: translateY(-2px);
+}
+.tk-chip-label {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--tk-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 2px;
+}
+.tk-chip-value {
+    display: block;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--tk-text);
+}
+
+/* Points de statut pulsants (vivant / temps réel) */
+.tk-dot {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    margin-right: 8px;
+    position: relative;
+    top: -1px;
+}
+.tk-dot-ok {
+    background: var(--tk-positive);
+    box-shadow: 0 0 0 0 rgba(52, 209, 160, 0.6);
+    animation: tk-pulse-ok 2s infinite;
+}
+.tk-dot-alert {
+    background: #ef5b5b;
+    box-shadow: 0 0 0 0 rgba(239, 91, 91, 0.6);
+    animation: tk-pulse-alert 1.4s infinite;
+}
+@keyframes tk-pulse-ok {
+    0% { box-shadow: 0 0 0 0 rgba(52, 209, 160, 0.5); }
+    70% { box-shadow: 0 0 0 8px rgba(52, 209, 160, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(52, 209, 160, 0); }
+}
+@keyframes tk-pulse-alert {
+    0% { box-shadow: 0 0 0 0 rgba(239, 91, 91, 0.5); }
+    70% { box-shadow: 0 0 0 8px rgba(239, 91, 91, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(239, 91, 91, 0); }
+}
+.tk-status-line {
+    font-weight: 600;
+    margin: 0.4rem 0 0.8rem 0;
+}
+
+/* Fondu d'entrée doux au chargement */
+.block-container {
+    animation: tk-fade-in 0.5s ease;
+}
+@keyframes tk-fade-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 </style>
 
