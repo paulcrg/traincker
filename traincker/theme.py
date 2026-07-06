@@ -84,27 +84,54 @@ div[class*="st-key-card_"] {
     border: 1px solid var(--tk-glass-border) !important;
     border-radius: 20px !important;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255,255,255,0.04);
-    padding: 1.2rem 1.4rem !important;
+    padding: 1.5rem 1.7rem !important;
 }
 
-/* Onglets en pilule */
+html, body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Onglets façon segmented control iOS, centrés, avec indicateur glissant */
 .stTabs [data-baseweb="tab-list"] {
-    gap: 4px;
+    position: relative;
+    gap: 2px;
     background: var(--tk-glass);
     backdrop-filter: blur(14px);
     border-radius: 999px;
-    padding: 6px;
+    padding: 8px;
     border: 1px solid var(--tk-glass-border);
     width: fit-content;
+    margin: 0 auto 2rem auto;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.25);
 }
 .stTabs [data-baseweb="tab"] {
+    position: relative;
+    z-index: 1;
     border-radius: 999px !important;
     font-weight: 600;
+    font-size: 0.95rem;
+    padding: 10px 24px !important;
     color: var(--tk-text-muted) !important;
+    transition: color 0.3s ease;
 }
 .stTabs [aria-selected="true"] {
-    background: var(--tk-accent) !important;
+    color: var(--tk-accent) !important;
+}
+.tk-slider-ready [aria-selected="true"] {
     color: #0a0d12 !important;
+}
+.tk-tab-slider {
+    position: absolute;
+    top: 8px;
+    bottom: 8px;
+    left: 8px;
+    background: var(--tk-accent);
+    border-radius: 999px;
+    box-shadow: 0 2px 10px rgba(91, 141, 239, 0.35);
+    transition: left 0.35s cubic-bezier(0.4, 0, 0.2, 1), width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 0;
+    pointer-events: none;
 }
 
 /* Boutons */
@@ -137,7 +164,7 @@ div[class*="st-key-card_"] {
 }
 
 .block-container {
-    padding-top: 2rem;
+    padding-top: 2.5rem;
     z-index: 1;
     position: relative;
 }
@@ -349,4 +376,45 @@ div[class*="st-key-suggest_box"] .stButton > button:hover {
 
 <div class="tk-blob tk-blob-1"></div>
 <div class="tk-blob tk-blob-2"></div>
+"""
+
+TAB_SLIDER_JS = """
+<script>
+(function() {
+    function setupTabSlider() {
+        const tabList = document.querySelector('.stTabs [data-baseweb="tab-list"]');
+        if (!tabList) return;
+        let slider = tabList.querySelector('.tk-tab-slider');
+        if (!slider) {
+            slider = document.createElement('div');
+            slider.className = 'tk-tab-slider';
+            tabList.insertBefore(slider, tabList.firstChild);
+        }
+
+        function moveSlider() {
+            const active = tabList.querySelector('[aria-selected="true"]');
+            if (!active) return;
+            const tabRect = active.getBoundingClientRect();
+            const listRect = tabList.getBoundingClientRect();
+            slider.style.width = tabRect.width + 'px';
+            slider.style.left = (tabRect.left - listRect.left) + 'px';
+            tabList.classList.add('tk-slider-ready');
+        }
+
+        tabList.querySelectorAll('[data-baseweb="tab"]').forEach(function(tab) {
+            if (tab.dataset.tkBound) return;
+            tab.dataset.tkBound = "1";
+            tab.addEventListener('click', function() {
+                setTimeout(moveSlider, 10);
+            });
+        });
+
+        moveSlider();
+    }
+
+    setTimeout(setupTabSlider, 150);
+    setInterval(setupTabSlider, 800);
+    window.addEventListener('resize', setupTabSlider);
+})();
+</script>
 """

@@ -31,7 +31,7 @@ from traincker.analysis import (
     formater_stats_affichage,
 )
 from traincker.viz import graphe_retard_par_ligne, graphe_tendance_temporelle
-from traincker.theme import THEME_CSS
+from traincker.theme import THEME_CSS, TAB_SLIDER_JS
 from traincker.icons import icono, titre_section
 from traincker.monitor import ETAT_PATH
 from traincker.collector import CSV_PATH
@@ -198,6 +198,7 @@ if _favoris_perturbes:
 tab_recherche, tab_favoris, tab_stats = st.tabs(
     ["Recherche", "Mes trajets favoris", "Statistiques"]
 )
+st.markdown(TAB_SLIDER_JS, unsafe_allow_html=True)
 
 with tab_recherche:
     with st.container(border=True, key="card_recherche"):
