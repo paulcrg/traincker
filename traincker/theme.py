@@ -238,6 +238,113 @@ div[class*="st-key-card_"]:hover {
     from { opacity: 0; transform: translateY(6px); }
     to { opacity: 1; transform: translateY(0); }
 }
+
+/* Bandeau d'alerte perturbation (global, en haut du dashboard) */
+.tk-banner-alert {
+    background: linear-gradient(90deg, rgba(239,91,91,0.18), rgba(239,91,91,0.06));
+    border: 1px solid rgba(239,91,91,0.35);
+    border-radius: 14px;
+    padding: 0.7rem 1rem;
+    margin-bottom: 1.2rem;
+    font-weight: 600;
+    color: var(--tk-text);
+}
+
+/* Compte à rebours du prochain train, mis en avant */
+.tk-next-train {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin: 0.3rem 0 0.6rem 0;
+}
+.tk-next-train-time {
+    font-size: 1.7rem;
+    font-weight: 800;
+    color: var(--tk-text);
+    letter-spacing: -0.02em;
+}
+.tk-next-train-countdown {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--tk-accent);
+    background: rgba(91, 141, 239, 0.12);
+    padding: 2px 10px;
+    border-radius: 999px;
+}
+
+/* Espacement plus respirant entre les boutons/colonnes d'actions */
+div[data-testid="column"] {
+    padding: 2px 4px;
+}
+.stButton > button {
+    margin-top: 2px;
+}
+
+/* Chips d'historique de recherche */
+.tk-history-label {
+    font-size: 0.78rem;
+    color: var(--tk-text-muted);
+    margin: 0.4rem 0 0.3rem 0;
+}
+
+/* Footer / crédits */
+.tk-footer {
+    text-align: center;
+    color: var(--tk-text-muted);
+    font-size: 0.8rem;
+    margin-top: 2.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--tk-glass-border);
+}
+
+/* Titre de section avec icône (remplace st.subheader + emoji) */
+.tk-section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--tk-text);
+    margin: 0.2rem 0 0.8rem 0;
+}
+
+/* Dropdown de suggestions type "moteur de recherche" */
+div[class*="st-key-suggest_box"] {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--tk-glass-border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin: -4px 0 12px 0;
+    padding: 4px 0;
+}
+div[class*="st-key-suggest_box"] .stButton > button {
+    width: 100%;
+    text-align: left;
+    justify-content: flex-start;
+    border-radius: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    font-weight: 500;
+    padding: 0.55rem 0.9rem;
+    margin: 0 !important;
+}
+div[class*="st-key-suggest_box"] .stButton > button:hover {
+    background: rgba(91, 141, 239, 0.14) !important;
+    color: var(--tk-accent) !important;
+    transform: none;
+}
+
+/* Séparateur discret entre lignes de favoris */
+.tk-divider {
+    border-bottom: 1px solid var(--tk-glass-border);
+    margin: 0.6rem 0;
+}
+
+/* Boutons pleine largeur plus compacts pour les listes */
+.tk-compact-btn button {
+    padding: 0.3rem 0.6rem !important;
+    font-size: 0.85rem !important;
+}
 </style>
 
 <div class="tk-blob tk-blob-1"></div>
