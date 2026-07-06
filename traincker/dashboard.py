@@ -208,6 +208,12 @@ with tab_recherche:
         if "station_recherche" not in st.session_state:
             st.session_state.station_recherche = None
 
+        # On applique la valeur "en attente" AVANT de créer le widget
+        # (Streamlit interdit de modifier st.session_state["gare_input"]
+        # après que ce widget ait été instancié dans le même run)
+        if "gare_input_pendiente" in st.session_state:
+            st.session_state["gare_input"] = st.session_state.pop("gare_input_pendiente")
+
         col_input, col_refresh = st.columns([5, 1])
         with col_input:
             gare_input = st.text_input(
@@ -229,7 +235,7 @@ with tab_recherche:
                 with col:
                     if st.button(item["name"], key=f"hist_{item['id']}", use_container_width=True):
                         st.session_state.station_recherche = item
-                        st.session_state["gare_input"] = item["name"]
+                        st.session_state["gare_input_pendiente"] = item["name"]
                         st.rerun()
 
         station = st.session_state.station_recherche
@@ -250,7 +256,7 @@ with tab_recherche:
                     clique = bloc_suggestions(stations, cle="recherche")
                     if clique:
                         st.session_state.station_recherche = clique
-                        st.session_state["gare_input"] = clique["name"]
+                        st.session_state["gare_input_pendiente"] = clique["name"]
                         st.rerun()
                     station = None
         else:
