@@ -37,10 +37,11 @@ from traincker.monitor import ETAT_PATH
 from traincker.collector import CSV_PATH
 
 _logo_path = Path(__file__).resolve().parent.parent / "assets" / "logo-white.png"
+_favicon_path = Path(__file__).resolve().parent.parent / "assets" / "discord-icon.png"
 
 st.set_page_config(
     page_title="Traincker",
-    page_icon=str(_logo_path) if _logo_path.exists() else None,
+    page_icon=str(_favicon_path) if _favicon_path.exists() else None,
     layout="centered",
 )
 st.markdown(THEME_CSS, unsafe_allow_html=True)
