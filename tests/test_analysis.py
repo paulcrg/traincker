@@ -9,6 +9,8 @@ from traincker.analysis import (
     calculer_retard_minutes,
     stats_ponctualite_par_ligne,
     tendance_retard_dans_le_temps,
+    formater_stats_affichage,
+    generer_synthese,
 )
 from traincker.collector import COLONNES
 
@@ -93,3 +95,27 @@ def test_tendance_retard_dans_le_temps(csv_exemple):
     df = charger_donnees(path=csv_exemple)
     tendance = tendance_retard_dans_le_temps(df, freq="D")
     assert len(tendance) == 2  # deux jours distincts (1er et 2 juillet)
+
+
+def test_generer_synthese_identifie_meilleure_et_pire_ligne(csv_exemple):
+    df = charger_donnees(path=csv_exemple)
+    stats = stats_ponctualite_par_ligne(df)
+    synthese = generer_synthese(stats)
+    assert "TER 2" in synthese  # la plus fiable (2 min de retard, un seul train)
+    assert "TER 1" in synthese  # la moins fiable (retard moyen de 7.5 min)
+    assert "%" in synthese
+
+
+def test_generer_synthese_vide_si_stats_vides():
+    import pandas as pd
+    assert generer_synthese(pd.DataFrame()) == ""
+
+
+def test_formater_stats_affichage_unites_integrees(csv_exemple):
+    df = charger_donnees(path=csv_exemple)
+    stats = stats_ponctualite_par_ligne(df)
+    affichage = formater_stats_affichage(stats)
+
+    assert "min" in affichage.loc["TER 1", "Retard moyen"]
+    assert "%" in affichage.loc["TER 1", "Ponctualité"]
+    assert affichage.loc["TER 2", "Trains observés"] == 1

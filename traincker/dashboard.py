@@ -29,6 +29,7 @@ from traincker.analysis import (
     stats_ponctualite_par_ligne,
     tendance_retard_dans_le_temps,
     formater_stats_affichage,
+    generer_synthese,
 )
 from traincker.viz import graphe_retard_par_ligne, graphe_tendance_temporelle
 from traincker.theme import THEME_CSS, TAB_SLIDER_JS
@@ -37,11 +38,10 @@ from traincker.monitor import ETAT_PATH
 from traincker.collector import CSV_PATH
 
 _logo_path = Path(__file__).resolve().parent.parent / "assets" / "logo-white.png"
-_favicon_path = Path(__file__).resolve().parent.parent / "assets" / "discord-icon.png"
 
 st.set_page_config(
     page_title="Traincker",
-    page_icon=str(_favicon_path) if _favicon_path.exists() else None,
+    page_icon=str(_logo_path) if _logo_path.exists() else None,
     layout="centered",
 )
 st.markdown(THEME_CSS, unsafe_allow_html=True)
@@ -204,6 +204,11 @@ st.markdown(TAB_SLIDER_JS, unsafe_allow_html=True)
 with tab_recherche:
     with st.container(border=True, key="card_recherche"):
         st.markdown(titre_section("search", "Prochains départs"), unsafe_allow_html=True)
+        st.markdown(
+            '<p class="tk-hint">Tape le nom d\'une gare (3 caractères minimum) '
+            "pour voir ses prochains départs.</p>",
+            unsafe_allow_html=True,
+        )
 
         if "historique_recherches" not in st.session_state:
             st.session_state.historique_recherches = []
@@ -356,17 +361,39 @@ with tab_favoris:
                 with col_delete:
                     st.markdown('<div class="tk-compact-btn">', unsafe_allow_html=True)
                     if st.button("Supprimer", key=f"delete_{i}", use_container_width=True):
-                        favoris_maj = charger_favoris()
-                        favoris_maj.pop(i)
-                        sauvegarder_favoris(favoris_maj)
+                        st.session_state[f"confirm_delete_{i}"] = True
                         st.rerun()
                     st.markdown("</div>", unsafe_allow_html=True)
+
+                if st.session_state.get(f"confirm_delete_{i}"):
+                    st.markdown(
+                        f'<p class="tk-confirm-text">Supprimer « {trajet.nom} » ? '
+                        f"Cette action est irréversible.</p>",
+                        unsafe_allow_html=True,
+                    )
+                    col_confirm, col_annuler, _ = st.columns([1, 1, 3])
+                    with col_confirm:
+                        if st.button("Confirmer", key=f"confirm_yes_{i}", use_container_width=True):
+                            favoris_maj = charger_favoris()
+                            favoris_maj.pop(i)
+                            sauvegarder_favoris(favoris_maj)
+                            st.session_state[f"confirm_delete_{i}"] = False
+                            st.rerun()
+                    with col_annuler:
+                        if st.button("Annuler", key=f"confirm_no_{i}", use_container_width=True):
+                            st.session_state[f"confirm_delete_{i}"] = False
+                            st.rerun()
 
                 if i < len(_infos_favoris) - 1:
                     st.markdown('<div class="tk-divider"></div>', unsafe_allow_html=True)
 
     with st.container(border=True, key="card_favoris_ajout"):
         st.markdown(titre_section("plus", "Ajouter un trajet favori"), unsafe_allow_html=True)
+        st.markdown(
+            '<p class="tk-hint">Cherche une gare de départ et d\'arrivée, '
+            "clique sur une suggestion, puis valide.</p>",
+            unsafe_allow_html=True,
+        )
 
         nom_trajet = st.text_input(
             "Nom du trajet", placeholder="ex: Domicile -> ESEO", key="nom_trajet_input"
@@ -452,7 +479,26 @@ with tab_stats:
             else:
                 stats = stats_ponctualite_par_ligne(df)
                 stats_affichage = formater_stats_affichage(stats)
-                st.dataframe(stats_affichage, use_container_width=True)
+
+                synthese = generer_synthese(stats)
+                if synthese:
+                    st.markdown(f'<div class="tk-insight">{synthese}</div>', unsafe_allow_html=True)
+
+                st.dataframe(
+                    stats_affichage,
+                    use_container_width=True,
+                    column_config={
+                        "Ponctualité": st.column_config.TextColumn(help="Part des trains partis avec moins de 5 min de retard"),
+                        "Retard moyen": st.column_config.TextColumn(help="Retard moyen constaté sur la ligne"),
+                        "Régularité": st.column_config.TextColumn(help="Écart-type du retard : plus c'est bas, plus la ligne est régulière"),
+                        "Trains observés": st.column_config.NumberColumn(help="Nombre de départs historisés pour cette ligne"),
+                    },
+                )
+                st.markdown(
+                    '<p class="tk-legend">Un train est considéré « à l\'heure » '
+                    "s'il part avec moins de 5 minutes de retard.</p>",
+                    unsafe_allow_html=True,
+                )
 
                 st.subheader("Retard moyen par ligne")
                 fig_retard = graphe_retard_par_ligne(stats)
@@ -503,6 +549,12 @@ with tab_stats:
                     )
 
 st.markdown(
-    '<div class="tk-footer">Paul Crémoux | paulcrg | 2026</div>',
+    '<div class="tk-footer">'
+    '<span>© 2026 Traincker</span>'
+    '<span class="tk-footer-sep">•</span>'
+    '<span>Paul Crémoux</span>'
+    '<span class="tk-footer-sep">•</span>'
+    '<span class="tk-footer-link">paulcrg</span>'
+    "</div>",
     unsafe_allow_html=True,
 )

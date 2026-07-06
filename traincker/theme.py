@@ -316,12 +316,26 @@ div[data-testid="column"] {
 
 /* Footer / crédits */
 .tk-footer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
     text-align: center;
     color: var(--tk-text-muted);
-    font-size: 0.8rem;
-    margin-top: 2.5rem;
-    padding-top: 1rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    margin-top: 3rem;
+    padding: 1.5rem 0 1rem 0;
     border-top: 1px solid var(--tk-glass-border);
+}
+.tk-footer-sep {
+    color: var(--tk-glass-border);
+}
+.tk-footer-link {
+    color: var(--tk-text-muted);
+    font-weight: 600;
 }
 
 /* Titre de section avec icône (remplace st.subheader + emoji) */
@@ -371,6 +385,40 @@ div[class*="st-key-suggest_box"] .stButton > button:hover {
 .tk-compact-btn button {
     padding: 0.3rem 0.6rem !important;
     font-size: 0.85rem !important;
+}
+
+/* Synthèse automatique en tête des statistiques */
+.tk-insight {
+    background: rgba(91, 141, 239, 0.08);
+    border: 1px solid rgba(91, 141, 239, 0.25);
+    border-radius: 12px;
+    padding: 0.8rem 1.1rem;
+    margin-bottom: 1rem;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: var(--tk-text);
+}
+
+/* Légende explicative discrète */
+.tk-legend {
+    font-size: 0.78rem;
+    color: var(--tk-text-muted);
+    margin-top: 0.5rem;
+}
+
+/* Confirmation de suppression */
+.tk-confirm-text {
+    font-size: 0.9rem;
+    color: #ef5b5b;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+/* Petit texte d'aide sous un titre de section */
+.tk-hint {
+    font-size: 0.85rem;
+    color: var(--tk-text-muted);
+    margin: -0.4rem 0 1rem 0;
 }
 </style>
 
