@@ -38,6 +38,7 @@ from traincker.monitor import ETAT_PATH
 from traincker.collector import CSV_PATH
 
 _logo_path = Path(__file__).resolve().parent.parent / "assets" / "logo-white.png"
+_logo_path = Path(__file__).resolve().parent.parent / "assets" / "logo-dashboard-badge.png"
 
 st.set_page_config(
     page_title="Traincker",
@@ -110,7 +111,7 @@ if _logo_path.exists():
     _logo_b64 = base64.b64encode(_logo_path.read_bytes()).decode()
     st.markdown(
         f'<div class="tk-logo-wrap">'
-        f'<img src="data:image/png;base64,{_logo_b64}" alt="Traincker" style="height:46px;">'
+        f'<img src="data:image/png;base64,{_logo_b64}" alt="Traincker" style="height:68px;">'
         f"</div>",
         unsafe_allow_html=True,
     )
