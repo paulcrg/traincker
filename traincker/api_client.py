@@ -17,6 +17,11 @@ load_dotenv()
 
 BASE_URL = "https://api.sncf.com/v1/coverage/sncf"
 
+# Délai maximum avant abandon d'une requête (secondes). Sans ça, une
+# connexion lente ou l'API distante qui traîne peut bloquer le dashboard
+# indéfiniment - c'est la cause la plus fréquente d'un site qui "rame".
+TIMEOUT_SECONDES = 8
+
 
 class NavitiaAPIError(Exception):
     """Erreur levée quand l'API SNCF renvoie une erreur."""
@@ -37,7 +42,19 @@ class NavitiaClient:
     def _get(self, endpoint: str, params: Optional[dict] = None) -> dict:
         """Effectue une requête GET sur l'API et gère les erreurs de base."""
         url = f"{BASE_URL}{endpoint}"
-        response = self.session.get(url, params=params or {})
+        try:
+            response = self.session.get(
+                url, params=params or {}, timeout=TIMEOUT_SECONDES
+            )
+        except requests.exceptions.Timeout:
+            raise NavitiaAPIError(
+                f"L'API SNCF n'a pas répondu dans les {TIMEOUT_SECONDES}s. "
+                "Réessaie dans un instant."
+            )
+        except requests.exceptions.ConnectionError:
+            raise NavitiaAPIError(
+                "Impossible de contacter l'API SNCF (vérifie ta connexion internet)."
+            )
 
         if response.status_code != 200:
             raise NavitiaAPIError(
