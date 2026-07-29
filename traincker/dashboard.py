@@ -37,18 +37,15 @@ from traincker.icons import icono, titre_section
 from traincker.monitor import ETAT_PATH
 from traincker.collector import CSV_PATH
 
-_logo_path = Path(__file__).resolve().parent.parent / "assets" / "logo-white.png"
-_logo_path = Path(__file__).resolve().parent.parent / "assets" / "logo-dashboard-badge.png"
+_favicon_path = Path(__file__).resolve().parent.parent / "assets" / "logo-dashboard-badge.png"
 
 st.set_page_config(
     page_title="Traincker",
-    page_icon=str(_logo_path) if _logo_path.exists() else None,
+    page_icon=str(_favicon_path) if _favicon_path.exists() else None,
     layout="centered",
 )
 st.markdown(THEME_CSS, unsafe_allow_html=True)
 
-
-# --- Appels API mis en cache (évite de spammer l'API à chaque rerun Streamlit) ---
 
 @st.cache_data(ttl=120, show_spinner=False)
 def rechercher_gares_cache(query: str):
@@ -75,7 +72,6 @@ def obtenir_next_depart_et_perturbations(gare_depart_id: str, gare_arrivee_id: s
 
 
 def obtenir_infos_favoris(favoris: list) -> list:
-    """Prochain départ + perturbations pour chaque trajet favori actif."""
     infos = []
     for trajet in favoris:
         info = {"trajet": trajet, "prochain_depart": None, "perturbations": []}
@@ -93,10 +89,6 @@ def obtenir_infos_favoris(favoris: list) -> list:
 
 
 def bloc_suggestions(stations: list, cle: str):
-    """
-    Affiche une liste de suggestions cliquables façon dropdown de moteur de
-    recherche. Retourne la station cliquée, ou None si aucun clic ce tour-ci.
-    """
     resultat = None
     with st.container(key=f"suggest_box_{cle}"):
         for s in stations:
@@ -105,26 +97,22 @@ def bloc_suggestions(stations: list, cle: str):
     return resultat
 
 
-# --- Logo + titre ---
-
+_logo_path = Path(__file__).resolve().parent.parent / "assets" / "logo-white.png"
 if _logo_path.exists():
     _logo_b64 = base64.b64encode(_logo_path.read_bytes()).decode()
     st.markdown(
         f'<div class="tk-logo-wrap">'
-        f'<img src="data:image/png;base64,{_logo_b64}" alt="Traincker" style="height:68px;">'
+        f'<img src="data:image/png;base64,{_logo_b64}" alt="Traincker" style="height:46px;">'
         f"</div>",
         unsafe_allow_html=True,
     )
 else:
     st.title("Traincker")
-
 st.markdown(
     '<p class="tk-caption">Suivi de trains au quotidien</p>',
     unsafe_allow_html=True,
 )
 
-
-# --- Chips de statistiques rapides ---
 
 def obtenir_stats_rapides() -> dict:
     favoris = charger_favoris()
@@ -178,8 +166,6 @@ st.markdown(
 )
 
 
-# --- Bandeau global de perturbation active ---
-
 _favoris_globaux = charger_favoris()
 _infos_favoris = obtenir_infos_favoris(_favoris_globaux)
 _favoris_perturbes = [info for info in _infos_favoris if info["perturbations"]]
@@ -197,8 +183,8 @@ if _favoris_perturbes:
     )
 
 
-tab_recherche, tab_favoris, tab_stats = st.tabs(
-    ["Recherche", "Mes trajets favoris", "Statistiques"]
+tab_recherche, tab_favoris, tab_stats, tab_apropos = st.tabs(
+    ["Recherche", "Mes trajets favoris", "Statistiques", "En savoir plus"]
 )
 st.markdown(TAB_SLIDER_JS, unsafe_allow_html=True)
 
@@ -216,9 +202,6 @@ with tab_recherche:
         if "station_recherche" not in st.session_state:
             st.session_state.station_recherche = None
 
-        # On applique la valeur "en attente" AVANT de créer le widget
-        # (Streamlit interdit de modifier st.session_state["gare_input"]
-        # après que ce widget ait été instancié dans le même run)
         if "gare_input_pendiente" in st.session_state:
             st.session_state["gare_input"] = st.session_state.pop("gare_input_pendiente")
 
@@ -226,7 +209,7 @@ with tab_recherche:
         with col_input:
             gare_input = st.text_input(
                 "Nom de la gare",
-                placeholder="ex: Dijon (min. 3 caractères)",
+                placeholder="ex: Paris (min. 3 caractères)",
                 key="gare_input",
                 label_visibility="collapsed",
             )
@@ -249,7 +232,6 @@ with tab_recherche:
         station = st.session_state.station_recherche
 
         if gare_input and len(gare_input.strip()) >= 3:
-            # Si le champ ne correspond plus à la station déjà choisie, on ré-affiche les suggestions
             if not station or station["name"] != gare_input:
                 try:
                     stations = rechercher_gares_cache(gare_input)
@@ -397,12 +379,12 @@ with tab_favoris:
         )
 
         nom_trajet = st.text_input(
-            "Nom du trajet", placeholder="ex: Domicile -> ESEO", key="nom_trajet_input"
+            "Nom du trajet", placeholder="ex: Trajet du matin", key="nom_trajet_input"
         )
 
         for cle_gare, label_gare, placeholder_gare in [
-            ("depart", "Gare de départ", "ex: Nuits-Saint-Georges"),
-            ("arrivee", "Gare d'arrivée", "ex: Dijon Ville"),
+            ("depart", "Gare de départ", "ex: Paris"),
+            ("arrivee", "Gare d'arrivée", "ex: Marseille"),
         ]:
             st.write(f"**{label_gare}**")
             requete = st.text_input(
@@ -548,6 +530,11 @@ with tab_stats:
                         mime="application/pdf",
                         use_container_width=True,
                     )
+
+with tab_apropos:
+    with st.container(border=True, key="card_apropos"):
+        st.markdown(titre_section("pin", "En savoir plus sur le projet"), unsafe_allow_html=True)
+        st.markdown("À compléter.")
 
 st.markdown(
     '<div class="tk-footer">'
