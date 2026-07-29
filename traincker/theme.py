@@ -8,8 +8,7 @@ Inter — minimaliste et épuré, inspiré du langage visuel d'Apple en dark mod
 
 THEME_CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@700&display=swap');
 :root {
     --tk-bg-1: #0a0d12;
     --tk-bg-2: #161b23;
@@ -70,6 +69,14 @@ h1, h2, h3 {
     font-weight: 700 !important;
     letter-spacing: -0.02em;
     color: var(--tk-text);
+.tk-title {
+    text-align: center;
+    font-family: 'Poppins', sans-serif !important;
+    font-size: 2.1rem;
+    font-weight: 700 !important;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.2rem;
+}
 }
 
 p, span, label, div {
