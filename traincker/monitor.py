@@ -26,6 +26,7 @@ from traincker.collector import historiser_departs
 from traincker.favoris import charger_favoris
 from traincker.settings import charger_parametres
 from traincker.weather import verifier_meteo_defavorable
+from traincker.reports import envoyer_rapport_hebdomadaire
 
 ETAT_PATH = (
     Path(__file__).resolve().parent.parent
@@ -175,6 +176,7 @@ def lancer_surveillance(intervalle_minutes: int = 5) -> None:
     )
     verifier_favoris()
     schedule.every(intervalle_minutes).minutes.do(verifier_favoris)
+    schedule.every().monday.at("08:00").do(envoyer_rapport_hebdomadaire)
 
     while True:
         schedule.run_pending()
