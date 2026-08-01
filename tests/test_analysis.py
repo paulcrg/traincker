@@ -8,7 +8,11 @@ from traincker.analysis import (
     charger_donnees,
     calculer_retard_minutes,
     stats_ponctualite_par_ligne,
+    stats_ponctualite_par_gare,
     tendance_retard_dans_le_temps,
+    heatmap_retards_heure_jour,
+    detecter_tendance,
+    temps_perdu_cumule_minutes,
     formater_stats_affichage,
     generer_synthese,
 )
@@ -35,7 +39,7 @@ def csv_exemple(tmp_path):
                 "ligne": "TER 1",
                 "direction": "Dijon Ville",
                 "heure_theorique": "20260701T080000",
-                "heure_prevue": "20260701T080000",  # à l'heure
+                "heure_prevue": "20260701T080000",
                 "statut": "base_schedule",
             },
             {
@@ -44,16 +48,16 @@ def csv_exemple(tmp_path):
                 "ligne": "TER 1",
                 "direction": "Dijon Ville",
                 "heure_theorique": "20260701T083000",
-                "heure_prevue": "20260701T084500",  # 15 min de retard
+                "heure_prevue": "20260701T084500",
                 "statut": "realtime",
             },
             {
                 "horodatage_collecte": "2026-07-02T08:00:00",
-                "gare": "Nuits-Saint-Georges",
+                "gare": "Dijon Ville",
                 "ligne": "TER 2",
-                "direction": "Dijon Ville",
+                "direction": "Nuits-Saint-Georges",
                 "heure_theorique": "20260702T080000",
-                "heure_prevue": "20260702T080200",  # 2 min de retard
+                "heure_prevue": "20260702T080200",
                 "statut": "realtime",
             },
         ],
@@ -82,27 +86,51 @@ def test_calculer_retard_minutes(csv_exemple):
 def test_stats_ponctualite_par_ligne(csv_exemple):
     df = charger_donnees(path=csv_exemple)
     stats = stats_ponctualite_par_ligne(df)
-
     assert "TER 1" in stats.index
     assert "TER 2" in stats.index
-    # TER 1 a un retard moyen de (0 + 15) / 2 = 7.5 min
     assert stats.loc["TER 1", "retard_moyen"] == pytest.approx(7.5)
-    # TER 2 n'a qu'un seul train, 2 min de retard
     assert stats.loc["TER 2", "retard_moyen"] == pytest.approx(2.0)
+
+
+def test_stats_ponctualite_par_gare(csv_exemple):
+    df = charger_donnees(path=csv_exemple)
+    stats = stats_ponctualite_par_gare(df)
+    assert "Nuits-Saint-Georges" in stats.index
+    assert "Dijon Ville" in stats.index
+    assert stats.loc["Dijon Ville", "nb_trains"] == 1
 
 
 def test_tendance_retard_dans_le_temps(csv_exemple):
     df = charger_donnees(path=csv_exemple)
     tendance = tendance_retard_dans_le_temps(df, freq="D")
-    assert len(tendance) == 2  # deux jours distincts (1er et 2 juillet)
+    assert len(tendance) == 2
+
+
+def test_heatmap_retards_heure_jour(csv_exemple):
+    df = charger_donnees(path=csv_exemple)
+    pivot = heatmap_retards_heure_jour(df)
+    assert 8 in pivot.columns
+    assert "Mercredi" in pivot.index  # 01/07/2026 est un mercredi
+
+
+def test_temps_perdu_cumule_minutes(csv_exemple):
+    df = charger_donnees(path=csv_exemple)
+    total = temps_perdu_cumule_minutes(df)
+    assert total == pytest.approx(17.0)
+
+
+def test_detecter_tendance_vide_si_pas_assez_de_donnees(csv_exemple):
+    df = charger_donnees(path=csv_exemple)
+    resultat = detecter_tendance(df, jours_recents=7)
+    assert resultat == {}
 
 
 def test_generer_synthese_identifie_meilleure_et_pire_ligne(csv_exemple):
     df = charger_donnees(path=csv_exemple)
     stats = stats_ponctualite_par_ligne(df)
     synthese = generer_synthese(stats)
-    assert "TER 2" in synthese  # la plus fiable (2 min de retard, un seul train)
-    assert "TER 1" in synthese  # la moins fiable (retard moyen de 7.5 min)
+    assert "TER 2" in synthese
+    assert "TER 1" in synthese
     assert "%" in synthese
 
 
@@ -115,7 +143,6 @@ def test_formater_stats_affichage_unites_integrees(csv_exemple):
     df = charger_donnees(path=csv_exemple)
     stats = stats_ponctualite_par_ligne(df)
     affichage = formater_stats_affichage(stats)
-
     assert "min" in affichage.loc["TER 1", "Retard moyen"]
     assert "%" in affichage.loc["TER 1", "Ponctualité"]
     assert affichage.loc["TER 2", "Trains observés"] == 1
