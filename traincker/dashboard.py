@@ -38,6 +38,7 @@ from traincker.monitor import ETAT_PATH
 from traincker.collector import CSV_PATH
 from traincker.demo_data import DemoNavitiaClient, obtenir_favoris_demo
 from traincker.changelog import CHANGELOG
+from traincker.settings import charger_parametres, sauvegarder_parametres
 
 _favicon_path = Path(__file__).resolve().parent.parent / "assets" / "logo-dashboard-badge.png"
 
@@ -675,6 +676,65 @@ with tab_apropos:
 
         if st.session_state.demo_mode:
             st.caption("Export/import désactivés en mode démo.")
+
+    with st.container(border=True, key="card_alertes"):
+        st.markdown(titre_section("alert", "Paramètres d'alerte"), unsafe_allow_html=True)
+        st.markdown(
+            '<p class="tk-hint">S\'applique à la surveillance en arrière-plan '
+            "(commande <code>python main.py surveiller</code>).</p>",
+            unsafe_allow_html=True,
+        )
+
+        parametres_actuels = charger_parametres()
+
+        col_silence_debut, col_silence_fin = st.columns(2)
+        with col_silence_debut:
+            heure_debut = st.text_input(
+                "Silence à partir de",
+                value=parametres_actuels["silence_debut"],
+                key="param_silence_debut",
+                help="Format HH:MM, ex: 22:00",
+            )
+        with col_silence_fin:
+            heure_fin = st.text_input(
+                "Silence jusqu'à",
+                value=parametres_actuels["silence_fin"],
+                key="param_silence_fin",
+                help="Format HH:MM, ex: 07:00",
+            )
+        st.caption("Les perturbations critiques (suppression de service) passent toujours.")
+
+        canal_discord = st.checkbox(
+            "Alertes Discord", value=parametres_actuels["canal_discord"], key="param_discord"
+        )
+        canal_email = st.checkbox(
+            "Alertes email", value=parametres_actuels["canal_email"], key="param_email"
+        )
+        email_destinataire = st.text_input(
+            "Adresse email de destination",
+            value=parametres_actuels["email_destinataire"],
+            key="param_email_dest",
+            disabled=not canal_email,
+            placeholder="toi@exemple.com",
+        )
+        alertes_meteo = st.checkbox(
+            "Alertes météo (neige, orage, pluie forte)",
+            value=parametres_actuels["alertes_meteo"],
+            key="param_meteo",
+        )
+
+        if st.button("Enregistrer les paramètres", type="primary"):
+            sauvegarder_parametres(
+                {
+                    "silence_debut": heure_debut,
+                    "silence_fin": heure_fin,
+                    "canal_discord": canal_discord,
+                    "canal_email": canal_email,
+                    "email_destinataire": email_destinataire,
+                    "alertes_meteo": alertes_meteo,
+                }
+            )
+            st.success("Paramètres enregistrés.")
 
     with st.container(border=True, key="card_support"):
         st.markdown(titre_section("alert", "Un problème ?"), unsafe_allow_html=True)
