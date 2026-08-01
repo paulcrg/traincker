@@ -36,6 +36,8 @@ from traincker.theme import THEME_CSS, TAB_SLIDER_JS
 from traincker.icons import icono, titre_section
 from traincker.monitor import ETAT_PATH
 from traincker.collector import CSV_PATH
+from traincker.demo_data import DemoNavitiaClient, obtenir_favoris_demo
+from traincker.changelog import CHANGELOG
 
 _favicon_path = Path(__file__).resolve().parent.parent / "assets" / "logo-dashboard-badge.png"
 
@@ -47,15 +49,43 @@ st.set_page_config(
 st.markdown(THEME_CSS, unsafe_allow_html=True)
 
 
+if "demo_mode" not in st.session_state:
+    st.session_state.demo_mode = False
+
+
+def get_client():
+    """Retourne le client démo (données fictives) ou le vrai client API SNCF."""
+    if st.session_state.demo_mode:
+        return DemoNavitiaClient()
+    return NavitiaClient()
+
+
+def get_favoris():
+    """Retourne les favoris de démo (en mémoire) ou les vrais favoris (disque)."""
+    if st.session_state.demo_mode:
+        if "demo_favoris" not in st.session_state:
+            st.session_state.demo_favoris = obtenir_favoris_demo()
+        return st.session_state.demo_favoris
+    return charger_favoris()
+
+
+def save_favoris(favoris_liste):
+    """Sauvegarde en mémoire (démo) ou sur disque (réel) selon le mode actif."""
+    if st.session_state.demo_mode:
+        st.session_state.demo_favoris = favoris_liste
+    else:
+        sauvegarder_favoris(favoris_liste)
+
+
 @st.cache_data(ttl=120, show_spinner=False)
 def rechercher_gares_cache(query: str):
-    client = NavitiaClient()
+    client = get_client()
     return client.search_station(query)
 
 
 @st.cache_data(ttl=20, show_spinner=False)
 def obtenir_departs_et_perturbations_gare(station_id: str):
-    client = NavitiaClient()
+    client = get_client()
     departs = client.get_next_departures(station_id, count=10)
     perturbations = client.get_disruptions(station_id)
     return departs, perturbations
@@ -63,7 +93,7 @@ def obtenir_departs_et_perturbations_gare(station_id: str):
 
 @st.cache_data(ttl=30, show_spinner=False)
 def obtenir_next_depart_et_perturbations(gare_depart_id: str, gare_arrivee_id: str):
-    client = NavitiaClient()
+    client = get_client()
     departs = client.get_next_departures(gare_depart_id, count=1)
     perturbations = client.get_disruptions(gare_depart_id)
     perturbations += client.get_disruptions(gare_arrivee_id)
@@ -113,9 +143,30 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+col_demo_spacer, col_demo_toggle = st.columns([4, 2])
+with col_demo_toggle:
+    demo_actif = st.toggle(
+        "Mode démo (données fictives)",
+        value=st.session_state.demo_mode,
+        key="demo_toggle",
+        help="Utilise des données inventées, sans appeler l'API SNCF ni exposer de clé réelle.",
+    )
+    if demo_actif != st.session_state.demo_mode:
+        st.session_state.demo_mode = demo_actif
+        rechercher_gares_cache.clear()
+        obtenir_departs_et_perturbations_gare.clear()
+        obtenir_next_depart_et_perturbations.clear()
+        st.rerun()
+
+if st.session_state.demo_mode:
+    st.markdown(
+        '<div class="tk-banner-alert">Mode démo actif — les données affichées sont fictives.</div>',
+        unsafe_allow_html=True,
+    )
+
 
 def obtenir_stats_rapides() -> dict:
-    favoris = charger_favoris()
+    favoris = get_favoris()
     nb_actifs = sum(1 for t in favoris if t.actif)
 
     derniere_collecte = "Aucune"
@@ -166,7 +217,7 @@ st.markdown(
 )
 
 
-_favoris_globaux = charger_favoris()
+_favoris_globaux = get_favoris()
 _infos_favoris = obtenir_infos_favoris(_favoris_globaux)
 _favoris_perturbes = [info for info in _infos_favoris if info["perturbations"]]
 
@@ -335,9 +386,9 @@ with tab_favoris:
                     st.markdown('<div class="tk-compact-btn">', unsafe_allow_html=True)
                     label_toggle = "Désactiver" if trajet.actif else "Activer"
                     if st.button(label_toggle, key=f"toggle_{i}", use_container_width=True):
-                        favoris_maj = charger_favoris()
+                        favoris_maj = get_favoris()
                         favoris_maj[i].actif = not favoris_maj[i].actif
-                        sauvegarder_favoris(favoris_maj)
+                        save_favoris(favoris_maj)
                         st.rerun()
                     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -357,15 +408,38 @@ with tab_favoris:
                     col_confirm, col_annuler, _ = st.columns([1, 1, 3])
                     with col_confirm:
                         if st.button("Confirmer", key=f"confirm_yes_{i}", use_container_width=True):
-                            favoris_maj = charger_favoris()
+                            favoris_maj = get_favoris()
                             favoris_maj.pop(i)
-                            sauvegarder_favoris(favoris_maj)
+                            save_favoris(favoris_maj)
                             st.session_state[f"confirm_delete_{i}"] = False
                             st.rerun()
                     with col_annuler:
                         if st.button("Annuler", key=f"confirm_no_{i}", use_container_width=True):
                             st.session_state[f"confirm_delete_{i}"] = False
                             st.rerun()
+
+                deja_un_retour = any(
+                    f.gare_depart_id == trajet.gare_arrivee_id
+                    and f.gare_arrivee_id == trajet.gare_depart_id
+                    for f in get_favoris()
+                )
+                if not deja_un_retour:
+                    if st.button(
+                        "Créer le trajet retour", key=f"retour_{i}", help="Ajoute le trajet inverse"
+                    ):
+                        favoris_maj = get_favoris()
+                        favoris_maj.append(
+                            Trajet(
+                                nom=f"{trajet.nom} (retour)",
+                                gare_depart_id=trajet.gare_arrivee_id,
+                                gare_depart_nom=trajet.gare_arrivee_nom,
+                                gare_arrivee_id=trajet.gare_depart_id,
+                                gare_arrivee_nom=trajet.gare_depart_nom,
+                            )
+                        )
+                        save_favoris(favoris_maj)
+                        st.success("Trajet retour ajouté.")
+                        st.rerun()
 
                 if i < len(_infos_favoris) - 1:
                     st.markdown('<div class="tk-divider"></div>', unsafe_allow_html=True)
@@ -418,6 +492,12 @@ with tab_favoris:
         gare_depart_choisie = st.session_state.get("station_depart")
         gare_arrivee_choisie = st.session_state.get("station_arrivee")
 
+        if gare_depart_choisie and gare_arrivee_choisie:
+            if st.button("Inverser départ / arrivée", key="inverser_depart_arrivee"):
+                st.session_state["station_depart"] = gare_arrivee_choisie
+                st.session_state["station_arrivee"] = gare_depart_choisie
+                st.rerun()
+
         if gare_depart_choisie:
             st.caption(f"Départ sélectionné : {gare_depart_choisie['name']}")
         if gare_arrivee_choisie:
@@ -429,7 +509,7 @@ with tab_favoris:
             elif not gare_depart_choisie or not gare_arrivee_choisie:
                 st.warning("Cherche et sélectionne une gare de départ ET d'arrivée.")
             else:
-                favoris_maj = charger_favoris()
+                favoris_maj = get_favoris()
                 favoris_maj.append(
                     Trajet(
                         nom=nom_trajet,
@@ -439,7 +519,7 @@ with tab_favoris:
                         gare_arrivee_nom=gare_arrivee_choisie["name"],
                     )
                 )
-                sauvegarder_favoris(favoris_maj)
+                save_favoris(favoris_maj)
                 st.session_state["station_depart"] = None
                 st.session_state["station_arrivee"] = None
                 st.success(f"Trajet « {nom_trajet} » ajouté !")
@@ -535,6 +615,75 @@ with tab_apropos:
     with st.container(border=True, key="card_apropos"):
         st.markdown(titre_section("pin", "En savoir plus sur le projet"), unsafe_allow_html=True)
         st.markdown("À compléter.")
+
+    with st.container(border=True, key="card_changelog"):
+        st.markdown(titre_section("clock", "Historique des évolutions"), unsafe_allow_html=True)
+        for entree in CHANGELOG:
+            st.markdown(f"**{entree['titre']}**")
+            st.caption(entree["description"])
+
+    with st.container(border=True, key="card_config"):
+        st.markdown(titre_section("download", "Sauvegarde de la configuration"), unsafe_allow_html=True)
+        st.markdown(
+            '<p class="tk-hint">Exporte tes trajets favoris pour les garder en sécurité, '
+            "ou restaure une sauvegarde précédente.</p>",
+            unsafe_allow_html=True,
+        )
+
+        col_export, col_import = st.columns(2)
+        with col_export:
+            favoris_export = get_favoris()
+            export_data = {
+                "trajets": [
+                    {
+                        "nom": t.nom,
+                        "gare_depart_id": t.gare_depart_id,
+                        "gare_depart_nom": t.gare_depart_nom,
+                        "gare_arrivee_id": t.gare_arrivee_id,
+                        "gare_arrivee_nom": t.gare_arrivee_nom,
+                        "actif": t.actif,
+                    }
+                    for t in favoris_export
+                ]
+            }
+            st.download_button(
+                "Exporter mes trajets",
+                data=json.dumps(export_data, ensure_ascii=False, indent=2),
+                file_name="traincker_favoris.json",
+                mime="application/json",
+                use_container_width=True,
+                disabled=st.session_state.demo_mode,
+            )
+
+        with col_import:
+            fichier_import = st.file_uploader(
+                "Restaurer une sauvegarde",
+                type="json",
+                label_visibility="collapsed",
+                disabled=st.session_state.demo_mode,
+            )
+            if fichier_import is not None:
+                try:
+                    data_importee = json.loads(fichier_import.read().decode("utf-8"))
+                    trajets_importes = [Trajet(**t) for t in data_importee.get("trajets", [])]
+                    if st.button("Confirmer la restauration", type="primary"):
+                        save_favoris(trajets_importes)
+                        st.success(f"{len(trajets_importes)} trajet(s) restauré(s).")
+                        st.rerun()
+                except (json.JSONDecodeError, TypeError, KeyError) as e:
+                    st.error(f"Fichier invalide : {e}")
+
+        if st.session_state.demo_mode:
+            st.caption("Export/import désactivés en mode démo.")
+
+    with st.container(border=True, key="card_support"):
+        st.markdown(titre_section("alert", "Un problème ?"), unsafe_allow_html=True)
+        url_issue = (
+            "https://github.com/paulcrg/traincker/issues/new"
+            "?title=Bug%20signal%C3%A9%20depuis%20le%20dashboard"
+            "&body=Décris%20le%20problème%20rencontré%20ici."
+        )
+        st.link_button("Signaler un bug sur GitHub", url_issue, use_container_width=True)
 
 st.markdown(
     '<div class="tk-footer">'
