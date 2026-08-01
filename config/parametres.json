@@ -1,0 +1,8 @@
+{
+  "silence_debut": "22:00",
+  "silence_fin": "07:00",
+  "canal_discord": false,
+  "canal_email": true,
+  "email_destinataire": "paul.cremouxguiblain21@gmail.com",
+  "alertes_meteo": true
+}
