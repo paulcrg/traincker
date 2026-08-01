@@ -7,6 +7,14 @@
       "gare_arrivee_id": "stop_area:SNCF:87713040",
       "gare_arrivee_nom": "Dijon Ville",
       "actif": true
+    },
+    {
+      "nom": "Domicile -> ESEO (retour)",
+      "gare_depart_id": "stop_area:SNCF:87713040",
+      "gare_depart_nom": "Dijon Ville",
+      "gare_arrivee_id": "stop_area:SNCF:87713529",
+      "gare_arrivee_nom": "Nuits-Saint-Georges",
+      "actif": true
     }
   ]
 }
