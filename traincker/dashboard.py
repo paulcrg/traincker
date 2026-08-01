@@ -27,11 +27,20 @@ from traincker.utils import formater_heure, calculer_compte_a_rebours
 from traincker.analysis import (
     charger_donnees,
     stats_ponctualite_par_ligne,
+    stats_ponctualite_par_gare,
     tendance_retard_dans_le_temps,
+    heatmap_retards_heure_jour,
+    detecter_tendance,
+    temps_perdu_cumule_minutes,
     formater_stats_affichage,
     generer_synthese,
 )
-from traincker.viz import graphe_retard_par_ligne, graphe_tendance_temporelle
+from traincker.viz import (
+    graphe_retard_par_ligne,
+    graphe_tendance_temporelle,
+    graphe_heatmap_retards,
+)
+from traincker.reports import envoyer_rapport_hebdomadaire
 from traincker.theme import THEME_CSS, TAB_SLIDER_JS
 from traincker.icons import icono, titre_section
 from traincker.monitor import ETAT_PATH
@@ -548,6 +557,43 @@ with tab_stats:
                 if synthese:
                     st.markdown(f'<div class="tk-insight">{synthese}</div>', unsafe_allow_html=True)
 
+                temps_perdu = temps_perdu_cumule_minutes(df)
+                tendance_info = detecter_tendance(df)
+
+                col_temps_perdu, col_tendance = st.columns(2)
+                with col_temps_perdu:
+                    heures_perdues = temps_perdu / 60
+                    st.markdown(
+                        f'<div class="tk-chip">'
+                        f'<span class="tk-chip-label">Temps de retard cumulé</span>'
+                        f'<span class="tk-chip-value">{heures_perdues:.1f} h</span>'
+                        f"</div>",
+                        unsafe_allow_html=True,
+                    )
+                with col_tendance:
+                    if tendance_info:
+                        libelles = {
+                            "amelioration": "En amélioration",
+                            "degradation": "En dégradation",
+                            "stable": "Stable",
+                        }
+                        st.markdown(
+                            f'<div class="tk-chip">'
+                            f'<span class="tk-chip-label">Tendance récente</span>'
+                            f'<span class="tk-chip-value">{libelles[tendance_info["direction"]]}</span>'
+                            f"</div>",
+                            unsafe_allow_html=True,
+                        )
+                    else:
+                        st.markdown(
+                            '<div class="tk-chip">'
+                            '<span class="tk-chip-label">Tendance récente</span>'
+                            '<span class="tk-chip-value">Pas assez de données</span>'
+                            "</div>",
+                            unsafe_allow_html=True,
+                        )
+                st.markdown("<br>", unsafe_allow_html=True)
+
                 st.dataframe(
                     stats_affichage,
                     use_container_width=True,
@@ -572,6 +618,19 @@ with tab_stats:
                 tendance = tendance_retard_dans_le_temps(df)
                 fig_tendance = graphe_tendance_temporelle(tendance)
                 st.pyplot(fig_tendance)
+
+                st.divider()
+                st.subheader("Fiabilité par gare")
+                stats_gare = stats_ponctualite_par_gare(df)
+                st.dataframe(formater_stats_affichage(stats_gare), use_container_width=True)
+
+                st.subheader("Répartition des retards (jour x heure)")
+                pivot = heatmap_retards_heure_jour(df)
+                if pivot.dropna(how="all").empty:
+                    st.caption("Pas encore assez de données pour cette vue.")
+                else:
+                    fig_heatmap = graphe_heatmap_retards(pivot)
+                    st.pyplot(fig_heatmap)
 
                 st.divider()
                 st.markdown(titre_section("download", "Exporter"), unsafe_allow_html=True)
@@ -735,6 +794,22 @@ with tab_apropos:
                 }
             )
             st.success("Paramètres enregistrés.")
+
+        st.divider()
+        st.caption(
+            "Un rapport de ponctualité est envoyé automatiquement chaque lundi "
+            "à 8h si les alertes email sont activées (nécessite la surveillance "
+            "en arrière-plan). Tu peux aussi le tester manuellement :"
+        )
+        if st.button("Envoyer le rapport hebdomadaire maintenant"):
+            if not st.session_state.demo_mode:
+                envoye = envoyer_rapport_hebdomadaire()
+                if envoye:
+                    st.success("Rapport envoyé.")
+                else:
+                    st.warning("Active les alertes email et renseigne une adresse d'abord.")
+            else:
+                st.info("Indisponible en mode démo.")
 
     with st.container(border=True, key="card_support"):
         st.markdown(titre_section("alert", "Un problème ?"), unsafe_allow_html=True)
