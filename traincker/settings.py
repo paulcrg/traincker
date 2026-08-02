@@ -12,6 +12,8 @@ DEFAUTS = {
     "canal_email": False,
     "email_destinataire": "",
     "alertes_meteo": True,
+    "contraste_eleve": False,
+    "taille_police": "normale",
 }
 
 
