@@ -41,7 +41,7 @@ from traincker.viz import (
     graphe_heatmap_retards,
 )
 from traincker.reports import envoyer_rapport_hebdomadaire
-from traincker.theme import THEME_CSS, TAB_SLIDER_JS, css_accessibilite
+from traincker.theme import THEME_CSS, TAB_SLIDER_JS, css_accessibilite, CSS_THEME_CLAIR
 from traincker.icons import icono, titre_section
 from traincker.monitor import ETAT_PATH
 from traincker.collector import CSV_PATH
@@ -51,6 +51,7 @@ from traincker.settings import charger_parametres, sauvegarder_parametres
 from traincker.local_cache import obtenir as cache_obtenir, obtenir_meme_expire, enregistrer as cache_enregistrer
 from traincker.logs import logger, lire_logs, vider_logs
 from traincker.journal import ajouter_entree, lire_journal, vider_journal
+from traincker.i18n import t
 
 _favicon_path = Path(__file__).resolve().parent.parent / "assets" / "logo-dashboard-badge.png"
 
@@ -62,6 +63,11 @@ st.set_page_config(
 st.markdown(THEME_CSS, unsafe_allow_html=True)
 
 _parametres_globaux = charger_parametres()
+_langue = _parametres_globaux.get("langue", "fr")
+
+if _parametres_globaux.get("theme_clair", False):
+    st.markdown(CSS_THEME_CLAIR, unsafe_allow_html=True)
+
 st.markdown(
     css_accessibilite(
         _parametres_globaux.get("contraste_eleve", False),
@@ -205,7 +211,7 @@ if _logo_path.exists():
 else:
     st.title("Traincker")
 st.markdown(
-    '<p class="tk-caption">Suivi de trains au quotidien</p>',
+    f'<p class="tk-caption">{t("caption", _langue)}</p>',
     unsafe_allow_html=True,
 )
 
@@ -309,7 +315,12 @@ if _favoris_perturbes:
 
 
 tab_recherche, tab_favoris, tab_stats, tab_apropos = st.tabs(
-    ["Recherche", "Mes trajets favoris", "Statistiques", "En savoir plus"]
+    [
+        t("tab_recherche", _langue),
+        t("tab_favoris", _langue),
+        t("tab_stats", _langue),
+        t("tab_apropos", _langue),
+    ]
 )
 st.markdown(TAB_SLIDER_JS, unsafe_allow_html=True)
 
@@ -749,6 +760,25 @@ with tab_apropos:
         st.markdown(titre_section("pin", "En savoir plus sur le projet"), unsafe_allow_html=True)
         st.markdown("À compléter.")
 
+    with st.container(border=True, key="card_portfolio"):
+        st.markdown(titre_section("shield", "Vue technique"), unsafe_allow_html=True)
+        st.markdown(
+            """
+**Stack** : Python, Streamlit, pandas/numpy, matplotlib, API SNCF (Navitia), Open-Meteo.
+
+**Architecture** :
+- `api_client.py` — client HTTP vers l'API SNCF, avec timeout et gestion d'erreurs
+- `monitor.py` — surveillance périodique, alertes Discord/email, heures de silence
+- `analysis.py` / `viz.py` — statistiques de ponctualité et visualisations
+- `dashboard.py` — interface Streamlit (recherche, favoris, statistiques)
+- `settings.py` / `local_cache.py` / `logs.py` — persistance, cache disque, journalisation
+
+**Points notables** : mode démo avec données fictives, mode dégradé en cas de panne API,
+suite de tests automatisés (pytest), historique Git structuré par fonctionnalité.
+            """
+        )
+        st.link_button("Voir le code sur GitHub", "https://github.com/paulcrg/traincker", use_container_width=True)
+
     with st.container(border=True, key="card_changelog"):
         st.markdown(titre_section("clock", "Historique des évolutions"), unsafe_allow_html=True)
         for entree in CHANGELOG:
@@ -885,7 +915,7 @@ with tab_apropos:
                 st.info("Indisponible en mode démo.")
 
     with st.container(border=True, key="card_accessibilite"):
-        st.markdown(titre_section("eye", "Accessibilité"), unsafe_allow_html=True)
+        st.markdown(titre_section("eye", t("accessibilite", _langue)), unsafe_allow_html=True)
 
         col_contraste, col_police = st.columns(2)
         with col_contraste:
@@ -905,10 +935,28 @@ with tab_apropos:
                 key="param_taille_police",
             )
 
+        col_theme, col_langue = st.columns(2)
+        with col_theme:
+            theme_clair = st.checkbox(
+                t("theme_clair", _langue),
+                value=_parametres_globaux.get("theme_clair", False),
+                key="param_theme_clair",
+            )
+        with col_langue:
+            langue_choisie = st.selectbox(
+                t("langue", _langue),
+                options=["fr", "en"],
+                index=["fr", "en"].index(_parametres_globaux.get("langue", "fr")),
+                format_func=lambda v: {"fr": "Français", "en": "English"}[v],
+                key="param_langue",
+            )
+
         if st.button("Appliquer", key="appliquer_accessibilite"):
             maj = charger_parametres()
             maj["contraste_eleve"] = contraste_eleve
             maj["taille_police"] = taille_police
+            maj["theme_clair"] = theme_clair
+            maj["langue"] = langue_choisie
             sauvegarder_parametres(maj)
             st.rerun()
 
