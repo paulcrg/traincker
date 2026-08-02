@@ -15,6 +15,14 @@
       "gare_arrivee_id": "stop_area:SNCF:87713529",
       "gare_arrivee_nom": "Nuits-Saint-Georges",
       "actif": true
+    },
+    {
+      "nom": "Test",
+      "gare_depart_id": "stop_area:SNCF:87384008",
+      "gare_depart_nom": "Paris Saint-Lazare (Paris)",
+      "gare_arrivee_id": "stop_area:SNCF:87713040",
+      "gare_arrivee_nom": "Dijon (Dijon)",
+      "actif": true
     }
   ]
 }

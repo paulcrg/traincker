@@ -4,5 +4,7 @@
   "canal_discord": false,
   "canal_email": true,
   "email_destinataire": "paul.cremouxguiblain21@gmail.com",
-  "alertes_meteo": true
+  "alertes_meteo": true,
+  "contraste_eleve": false,
+  "taille_police": "normale"
 }
