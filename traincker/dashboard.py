@@ -41,13 +41,16 @@ from traincker.viz import (
     graphe_heatmap_retards,
 )
 from traincker.reports import envoyer_rapport_hebdomadaire
-from traincker.theme import THEME_CSS, TAB_SLIDER_JS
+from traincker.theme import THEME_CSS, TAB_SLIDER_JS, css_accessibilite
 from traincker.icons import icono, titre_section
 from traincker.monitor import ETAT_PATH
 from traincker.collector import CSV_PATH
 from traincker.demo_data import DemoNavitiaClient, obtenir_favoris_demo
 from traincker.changelog import CHANGELOG
 from traincker.settings import charger_parametres, sauvegarder_parametres
+from traincker.local_cache import obtenir as cache_obtenir, obtenir_meme_expire, enregistrer as cache_enregistrer
+from traincker.logs import logger, lire_logs, vider_logs
+from traincker.journal import ajouter_entree, lire_journal, vider_journal
 
 _favicon_path = Path(__file__).resolve().parent.parent / "assets" / "logo-dashboard-badge.png"
 
@@ -57,6 +60,15 @@ st.set_page_config(
     layout="centered",
 )
 st.markdown(THEME_CSS, unsafe_allow_html=True)
+
+_parametres_globaux = charger_parametres()
+st.markdown(
+    css_accessibilite(
+        _parametres_globaux.get("contraste_eleve", False),
+        _parametres_globaux.get("taille_police", "normale"),
+    ),
+    unsafe_allow_html=True,
+)
 
 
 if "demo_mode" not in st.session_state:
@@ -87,28 +99,72 @@ def save_favoris(favoris_liste):
         sauvegarder_favoris(favoris_liste)
 
 
+if "mode_degrade" not in st.session_state:
+    st.session_state.mode_degrade = None  # None = normal, sinon horodatage unix de la dernière donnée connue
+
+
 @st.cache_data(ttl=120, show_spinner=False)
 def rechercher_gares_cache(query: str):
-    client = get_client()
-    return client.search_station(query)
+    cle = f"recherche:{query.lower()}"
+    try:
+        client = get_client()
+        resultat = client.search_station(query)
+        if not st.session_state.demo_mode:
+            cache_enregistrer(cle, resultat)
+        st.session_state.mode_degrade = None
+        return resultat
+    except NavitiaAPIError:
+        secours = obtenir_meme_expire(cle)
+        if secours:
+            valeur, horodatage = secours
+            st.session_state.mode_degrade = horodatage
+            logger(f"Mode dégradé activé pour la recherche « {query} »", niveau="WARNING")
+            return valeur
+        raise
 
 
 @st.cache_data(ttl=20, show_spinner=False)
 def obtenir_departs_et_perturbations_gare(station_id: str):
-    client = get_client()
-    departs = client.get_next_departures(station_id, count=10)
-    perturbations = client.get_disruptions(station_id)
-    return departs, perturbations
+    cle = f"departs:{station_id}"
+    try:
+        client = get_client()
+        departs = client.get_next_departures(station_id, count=10)
+        perturbations = client.get_disruptions(station_id)
+        resultat = (departs, perturbations)
+        if not st.session_state.demo_mode:
+            cache_enregistrer(cle, resultat)
+        st.session_state.mode_degrade = None
+        return resultat
+    except NavitiaAPIError:
+        secours = obtenir_meme_expire(cle)
+        if secours:
+            valeur, horodatage = secours
+            st.session_state.mode_degrade = horodatage
+            logger(f"Mode dégradé activé pour la gare {station_id}", niveau="WARNING")
+            return tuple(valeur)
+        raise
 
 
 @st.cache_data(ttl=30, show_spinner=False)
 def obtenir_next_depart_et_perturbations(gare_depart_id: str, gare_arrivee_id: str):
-    client = get_client()
-    departs = client.get_next_departures(gare_depart_id, count=1)
-    perturbations = client.get_disruptions(gare_depart_id)
-    perturbations += client.get_disruptions(gare_arrivee_id)
-    depart = departs[0] if departs else None
-    return depart, perturbations
+    cle = f"favori:{gare_depart_id}:{gare_arrivee_id}"
+    try:
+        client = get_client()
+        departs = client.get_next_departures(gare_depart_id, count=1)
+        perturbations = client.get_disruptions(gare_depart_id)
+        perturbations += client.get_disruptions(gare_arrivee_id)
+        depart = departs[0] if departs else None
+        resultat = (depart, perturbations)
+        if not st.session_state.demo_mode:
+            cache_enregistrer(cle, resultat)
+        return resultat
+    except NavitiaAPIError:
+        secours = obtenir_meme_expire(cle)
+        if secours:
+            valeur, _ = secours
+            logger(f"Mode dégradé activé pour le trajet {gare_depart_id}->{gare_arrivee_id}", niveau="WARNING")
+            return tuple(valeur)
+        return None, []
 
 
 def obtenir_infos_favoris(favoris: list) -> list:
@@ -171,6 +227,14 @@ with col_demo_toggle:
 if st.session_state.demo_mode:
     st.markdown(
         '<div class="tk-banner-alert">Mode démo actif — les données affichées sont fictives.</div>',
+        unsafe_allow_html=True,
+    )
+
+if st.session_state.mode_degrade:
+    _dt_secours = datetime.fromtimestamp(st.session_state.mode_degrade)
+    st.markdown(
+        f'<div class="tk-banner-degrade">Mode dégradé — l\'API SNCF ne répond pas. '
+        f'Dernières données connues du {_dt_secours:%d/%m à %H:%M}.</div>',
         unsafe_allow_html=True,
     )
 
@@ -355,8 +419,15 @@ with tab_recherche:
                 hist.insert(0, station)
                 st.session_state.historique_recherches = hist[:5]
 
+                if "journal_ids_logues" not in st.session_state:
+                    st.session_state.journal_ids_logues = set()
+                if not st.session_state.demo_mode and station["id"] not in st.session_state.journal_ids_logues:
+                    ajouter_entree("recherche", station["name"])
+                    st.session_state.journal_ids_logues.add(station["id"])
+
             except NavitiaAPIError as e:
                 st.error(f"Erreur API : {e}")
+                logger(f"Erreur API sur la recherche « {gare_input} » : {e}", niveau="ERROR")
 
 with tab_favoris:
     with st.container(border=True, key="card_favoris_liste"):
@@ -532,6 +603,8 @@ with tab_favoris:
                 save_favoris(favoris_maj)
                 st.session_state["station_depart"] = None
                 st.session_state["station_arrivee"] = None
+                if not st.session_state.demo_mode:
+                    ajouter_entree("ajout_favori", nom_trajet)
                 st.success(f"Trajet « {nom_trajet} » ajouté !")
                 st.rerun()
 
@@ -810,6 +883,78 @@ with tab_apropos:
                     st.warning("Active les alertes email et renseigne une adresse d'abord.")
             else:
                 st.info("Indisponible en mode démo.")
+
+    with st.container(border=True, key="card_accessibilite"):
+        st.markdown(titre_section("eye", "Accessibilité"), unsafe_allow_html=True)
+
+        col_contraste, col_police = st.columns(2)
+        with col_contraste:
+            contraste_eleve = st.checkbox(
+                "Contraste élevé",
+                value=_parametres_globaux.get("contraste_eleve", False),
+                key="param_contraste",
+            )
+        with col_police:
+            taille_police = st.selectbox(
+                "Taille du texte",
+                options=["normale", "grande", "tres_grande"],
+                index=["normale", "grande", "tres_grande"].index(
+                    _parametres_globaux.get("taille_police", "normale")
+                ),
+                format_func=lambda v: {"normale": "Normale", "grande": "Grande", "tres_grande": "Très grande"}[v],
+                key="param_taille_police",
+            )
+
+        if st.button("Appliquer", key="appliquer_accessibilite"):
+            maj = charger_parametres()
+            maj["contraste_eleve"] = contraste_eleve
+            maj["taille_police"] = taille_police
+            sauvegarder_parametres(maj)
+            st.rerun()
+
+    with st.container(border=True, key="card_historique"):
+        st.markdown(titre_section("list", "Mon historique"), unsafe_allow_html=True)
+        st.markdown(
+            '<p class="tk-hint">Trace de tes recherches et trajets ajoutés au fil du temps.</p>',
+            unsafe_allow_html=True,
+        )
+
+        if st.session_state.demo_mode:
+            st.caption("Historique désactivé en mode démo.")
+        else:
+            entrees = lire_journal(limite=20)
+            if not entrees:
+                st.info("Aucune activité enregistrée pour l'instant.")
+            else:
+                LIBELLES_JOURNAL = {"recherche": "Recherche", "ajout_favori": "Trajet ajouté"}
+                for entree in entrees:
+                    dt = datetime.fromisoformat(entree["horodatage"])
+                    label = LIBELLES_JOURNAL.get(entree["type"], entree["type"])
+                    st.markdown(
+                        f'<div class="tk-log-line">{dt:%d/%m %H:%M} — {label} : {entree["detail"]}</div>',
+                        unsafe_allow_html=True,
+                    )
+                if st.button("Vider mon historique", key="vider_historique"):
+                    vider_journal()
+                    st.rerun()
+
+    with st.container(border=True, key="card_logs"):
+        st.markdown(titre_section("shield", "Journal technique"), unsafe_allow_html=True)
+        st.markdown(
+            '<p class="tk-hint">Erreurs et événements techniques (mode dégradé, échecs API), '
+            "utile pour diagnostiquer un souci sans terminal.</p>",
+            unsafe_allow_html=True,
+        )
+
+        lignes_log = lire_logs(nb_lignes=30)
+        if not lignes_log:
+            st.info("Aucun événement enregistré.")
+        else:
+            for ligne in lignes_log:
+                st.markdown(f'<div class="tk-log-line">{ligne.strip()}</div>', unsafe_allow_html=True)
+            if st.button("Vider les logs", key="vider_logs"):
+                vider_logs()
+                st.rerun()
 
     with st.container(border=True, key="card_support"):
         st.markdown(titre_section("alert", "Un problème ?"), unsafe_allow_html=True)

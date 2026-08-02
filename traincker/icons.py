@@ -1,8 +1,4 @@
-"""
-Icônes SVG minimalistes faites maison, pour remplacer les emojis dans le
-dashboard. Traits fins (line icons), monochromes, héritent de la couleur du
-texte via currentColor.
-"""
+"""Icônes SVG minimalistes faites maison, pour remplacer les emojis."""
 
 _ICONES = {
     "search": '<circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/>',
@@ -21,11 +17,13 @@ _ICONES = {
         '<path d="M4 12a8 8 0 0 1 14.5-4.7"/><polyline points="18,3 18.5,7.3 14,7"/>'
         '<path d="M20 12a8 8 0 0 1-14.5 4.7"/><polyline points="6,21 5.5,16.7 10,17"/>'
     ),
+    "list": '<line x1="8" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="8" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1" fill="currentColor"/><circle cx="4" cy="12" r="1" fill="currentColor"/><circle cx="4" cy="18" r="1" fill="currentColor"/>',
+    "eye": '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+    "shield": '<path d="M12 3 L20 6 V12 C20 17 16.5 20.5 12 21 C7.5 20.5 4 17 4 12 V6 Z"/>',
 }
 
 
 def icono(nombre: str, size: int = 16, color: str = "currentColor", stroke_width: float = 2) -> str:
-    """Retourne le markup SVG inline d'une icône, prête à insérer via st.markdown."""
     interieur = _ICONES.get(nombre, "")
     return (
         f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" '
@@ -36,7 +34,6 @@ def icono(nombre: str, size: int = 16, color: str = "currentColor", stroke_width
 
 
 def titre_section(nombre_icone: str, texte: str) -> str:
-    """Titre de section stylé (remplace st.subheader avec une icône)."""
     return (
         f'<div class="tk-section-title">{icono(nombre_icone, size=18)}'
         f"<span>{texte}</span></div>"
