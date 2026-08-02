@@ -278,3 +278,25 @@ def css_accessibilite(contraste_eleve: bool, taille_police: str) -> str:
 
     css += "</style>"
     return css
+
+
+CSS_THEME_CLAIR = """
+<style>
+:root {
+    --tk-bg-1: #f4f6fb !important;
+    --tk-bg-2: #e6ecf7 !important;
+    --tk-glass: rgba(255, 255, 255, 0.65) !important;
+    --tk-glass-border: rgba(20, 30, 50, 0.10) !important;
+    --tk-accent: #2d6cdf !important;
+    --tk-positive: #1c9c74 !important;
+    --tk-text: #1b2430 !important;
+    --tk-text-muted: #5b6673 !important;
+}
+.tk-blob { opacity: 0.18 !important; }
+[data-testid="stHeader"] { background: transparent !important; }
+div[class*="st-key-card_"] {
+    box-shadow: 0 8px 28px rgba(20, 30, 50, 0.08) !important;
+}
+.tk-slider-ready [aria-selected="true"] { color: #ffffff !important; }
+</style>
+"""

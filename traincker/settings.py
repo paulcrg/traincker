@@ -14,6 +14,8 @@ DEFAUTS = {
     "alertes_meteo": True,
     "contraste_eleve": False,
     "taille_police": "normale",
+    "langue": "fr",
+    "theme_clair": False,
 }
 
 
