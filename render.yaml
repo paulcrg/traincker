@@ -1,0 +1,46 @@
+# Blueprint Render : définit les deux services (dashboard réel + démo publique)
+# en un seul fichier. Sur Render : New -> Blueprint -> sélectionner ce repo.
+services:
+  - type: web
+    name: traincker
+    runtime: python
+    plan: free
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: >
+      streamlit run traincker/dashboard.py
+      --server.port=$PORT --server.address=0.0.0.0
+      --server.headless=true --server.enableCORS=false
+      --server.enableXsrfProtection=false
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.4
+      - key: SNCF_API_KEY
+        sync: false
+      - key: DISCORD_WEBHOOK_URL
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+
+  - type: web
+    name: traincker-demo
+    runtime: python
+    plan: free
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: >
+      streamlit run traincker/dashboard.py
+      --server.port=$PORT --server.address=0.0.0.0
+      --server.headless=true --server.enableCORS=false
+      --server.enableXsrfProtection=false
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.4
+      - key: TRAINCKER_FORCE_DEMO
+        value: "1"
