@@ -11,11 +11,16 @@ venv/
 env/
 *.egg-info/
 
-# Data (garder la structure, pas le contenu)
+# Data (garder la structure ; certains fichiers d'état sont suivis exprès
+# pour persister entre les exécutions du cron GitHub Actions et les
+# redéploiements Streamlit Cloud)
 data/raw/*
 data/processed/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep
+!data/processed/departures.csv
+!data/processed/alertes_envoyees.json
+!data/processed/cache_local.json
 
 # IDE / OS
 .vscode/

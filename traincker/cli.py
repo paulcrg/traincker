@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 from traincker.api_client import NavitiaClient, NavitiaAPIError
-from traincker.monitor import lancer_surveillance
+from traincker.monitor import lancer_surveillance, verifier_favoris
 from traincker.utils import formater_heure
 
 
@@ -29,13 +29,21 @@ def cmd_surveiller(args):
     lancer_surveillance(intervalle_minutes=args.intervalle)
 
 
+def cmd_verifier(args):
+    """
+    Effectue UNE SEULE vérification des trajets favoris, puis quitte.
+    Pensé pour être appelé périodiquement par un ordonnanceur externe
+    (ex: cron GitHub Actions), plutôt que la boucle infinie 'surveiller'.
+    """
+    verifier_favoris()
+
+
 def cmd_stats(args):
     """Affiche les statistiques de ponctualité et génère les graphes."""
     from traincker.analysis import (
         charger_donnees,
         stats_ponctualite_par_ligne,
         tendance_retard_dans_le_temps,
-        formater_stats_affichage,
     )
     from traincker.viz import graphe_retard_par_ligne, graphe_tendance_temporelle
 
@@ -51,7 +59,7 @@ def cmd_stats(args):
 
     stats = stats_ponctualite_par_ligne(df)
     print("\nStatistiques de ponctualité par ligne :\n")
-    print(formater_stats_affichage(stats))
+    print(stats)
 
     dossier_sortie = Path("data/processed")
     graphe_retard_par_ligne(stats, save_path=str(dossier_sortie / "retard_par_ligne.png"))
@@ -80,7 +88,7 @@ def cmd_gare(args):
         return
 
     for d in departs:
-        statut = "⏱️ temps réel" if d["statut"] == "realtime" else "📅 théorique"
+        statut = "temps réel" if d["statut"] == "realtime" else "théorique"
         print(f"[{statut}] {d['ligne']} → {d['direction']} à {formater_heure(d['heure_prevue'])}")
 
 
@@ -97,7 +105,7 @@ def cmd_perturbations(args):
     disruptions = client.get_disruptions(station["id"])
 
     if not disruptions:
-        print(f"Aucune perturbation signalée pour {station['name']}. ✅")
+        print(f"Aucune perturbation signalée pour {station['name']}.")
         return
 
     print(f"Perturbations pour {station['name']} :\n")
@@ -131,12 +139,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser_recherche.set_defaults(func=cmd_recherche)
 
     parser_surveiller = subparsers.add_parser(
-        "surveiller", help="Surveille les trajets favoris en continu"
+        "surveiller", help="Surveille les trajets favoris en continu (boucle bloquante)"
     )
     parser_surveiller.add_argument(
         "--intervalle", type=int, default=5, help="Minutes entre deux vérifications"
     )
     parser_surveiller.set_defaults(func=cmd_surveiller)
+
+    parser_verifier = subparsers.add_parser(
+        "verifier", help="Effectue une seule vérification des trajets favoris (pour un cron externe)"
+    )
+    parser_verifier.set_defaults(func=cmd_verifier)
 
     parser_stats = subparsers.add_parser(
         "stats", help="Statistiques de ponctualité et graphes (à partir des données historisées)"
