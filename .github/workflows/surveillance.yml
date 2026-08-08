@@ -1,0 +1,44 @@
+name: Surveillance Traincker
+
+on:
+  schedule:
+    # Toutes les 15 minutes. GitHub ne garantit pas l'horaire exact en cas
+    # de forte charge (délai de quelques minutes possible), c'est normal.
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}  # permet de le déclencher manuellement depuis l'onglet Actions
+
+jobs:
+  verifier:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # nécessaire pour que le job puisse commit les données mises à jour
+
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Installer les dépendances
+        run: pip install -r requirements.txt
+
+      - name: Vérifier les trajets favoris
+        env:
+          SNCF_API_KEY: ${{ secrets.SNCF_API_KEY }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+        run: python main.py verifier
+
+      - name: Sauvegarder les données mises à jour
+        run: |
+          git config user.name "traincker-bot"
+          git config user.email "actions@github.com"
+          git add data/processed/departures.csv data/processed/alertes_envoyees.json data/processed/cache_local.json 2>/dev/null || true
+          git diff --cached --quiet || git commit -m "chore: mise a jour automatique (surveillance)"
+          git push
