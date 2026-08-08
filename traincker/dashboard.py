@@ -6,6 +6,7 @@ Lancer avec :
 """
 
 import sys
+import os
 import base64
 import json
 import csv
@@ -77,8 +78,10 @@ st.markdown(
 )
 
 
+FORCE_DEMO = os.getenv("TRAINCKER_FORCE_DEMO", "").lower() in ("1", "true", "yes")
+
 if "demo_mode" not in st.session_state:
-    st.session_state.demo_mode = False
+    st.session_state.demo_mode = FORCE_DEMO
 
 
 def get_client():
@@ -216,24 +219,31 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-col_demo_spacer, col_demo_toggle = st.columns([4, 2])
-with col_demo_toggle:
-    demo_actif = st.toggle(
-        "Mode démo (données fictives)",
-        value=st.session_state.demo_mode,
-        key="demo_toggle",
-        help="Utilise des données inventées, sans appeler l'API SNCF ni exposer de clé réelle.",
-    )
-    if demo_actif != st.session_state.demo_mode:
-        st.session_state.demo_mode = demo_actif
-        rechercher_gares_cache.clear()
-        obtenir_departs_et_perturbations_gare.clear()
-        obtenir_next_depart_et_perturbations.clear()
-        st.rerun()
+if not FORCE_DEMO:
+    col_demo_spacer, col_demo_toggle = st.columns([4, 2])
+    with col_demo_toggle:
+        demo_actif = st.toggle(
+            "Mode démo (données fictives)",
+            value=st.session_state.demo_mode,
+            key="demo_toggle",
+            help="Utilise des données inventées, sans appeler l'API SNCF ni exposer de clé réelle.",
+        )
+        if demo_actif != st.session_state.demo_mode:
+            st.session_state.demo_mode = demo_actif
+            rechercher_gares_cache.clear()
+            obtenir_departs_et_perturbations_gare.clear()
+            obtenir_next_depart_et_perturbations.clear()
+            st.rerun()
 
 if st.session_state.demo_mode:
+    _texte_demo = (
+        "Site de démonstration — toutes les données affichées sont fictives, "
+        "aucune clé API réelle n'est utilisée ici."
+        if FORCE_DEMO
+        else t("mode_demo_actif", _langue)
+    )
     st.markdown(
-        f'<div class="tk-banner-alert">{t("mode_demo_actif", _langue)}</div>',
+        f'<div class="tk-banner-alert">{_texte_demo}</div>',
         unsafe_allow_html=True,
     )
 
