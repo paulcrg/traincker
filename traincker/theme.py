@@ -207,6 +207,63 @@ div[class*="st-key-suggest_box"] .stButton > button:hover { background: rgba(91,
     padding: 2px 0;
     border-bottom: 1px solid rgba(255,255,255,0.04);
 }
+
+/* Chips de statistiques rapides (KPI en haut du dashboard) */
+.tk-chip-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 1.4rem;
+}
+.tk-chip {
+    flex: 1;
+    background: var(--tk-glass);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--tk-glass-border);
+    border-radius: 16px;
+    padding: 0.7rem 1rem;
+    text-align: center;
+    transition: transform 0.2s ease;
+}
+.tk-chip:hover { transform: translateY(-2px); }
+.tk-chip-label {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--tk-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 2px;
+}
+.tk-chip-value {
+    display: block;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--tk-text);
+}
+
+/* Points de statut pulsants (perturbation / RAS) */
+.tk-dot {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    margin-right: 8px;
+    position: relative;
+    top: -1px;
+}
+.tk-dot-ok { background: var(--tk-positive); animation: tk-pulse-ok 2s infinite; }
+.tk-dot-alert { background: #ef5b5b; animation: tk-pulse-alert 1.4s infinite; }
+@keyframes tk-pulse-ok {
+    0% { box-shadow: 0 0 0 0 rgba(52, 209, 160, 0.5); }
+    70% { box-shadow: 0 0 0 8px rgba(52, 209, 160, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(52, 209, 160, 0); }
+}
+@keyframes tk-pulse-alert {
+    0% { box-shadow: 0 0 0 0 rgba(239, 91, 91, 0.5); }
+    70% { box-shadow: 0 0 0 8px rgba(239, 91, 91, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(239, 91, 91, 0); }
+}
+.tk-status-line { font-weight: 600; margin: 0.4rem 0 0.8rem 0; }
 </style>
 
 <div class="tk-blob tk-blob-1"></div>
@@ -283,20 +340,31 @@ def css_accessibilite(contraste_eleve: bool, taille_police: str) -> str:
 CSS_THEME_CLAIR = """
 <style>
 :root {
-    --tk-bg-1: #f4f6fb !important;
-    --tk-bg-2: #e6ecf7 !important;
-    --tk-glass: rgba(255, 255, 255, 0.65) !important;
-    --tk-glass-border: rgba(20, 30, 50, 0.10) !important;
+    --tk-bg-1: #f5f7fb !important;
+    --tk-bg-2: #e9eef8 !important;
+    --tk-glass: rgba(255, 255, 255, 0.78) !important;
+    --tk-glass-border: rgba(20, 30, 50, 0.12) !important;
     --tk-accent: #2d6cdf !important;
-    --tk-positive: #1c9c74 !important;
-    --tk-text: #1b2430 !important;
-    --tk-text-muted: #5b6673 !important;
+    --tk-positive: #189968 !important;
+    --tk-text: #141c28 !important;
+    --tk-text-muted: #56606f !important;
 }
-.tk-blob { opacity: 0.18 !important; }
+.tk-blob { opacity: 0.16 !important; }
 [data-testid="stHeader"] { background: transparent !important; }
 div[class*="st-key-card_"] {
-    box-shadow: 0 8px 28px rgba(20, 30, 50, 0.08) !important;
+    box-shadow: 0 10px 30px rgba(20, 30, 50, 0.10) !important;
+    border: 1px solid rgba(20, 30, 50, 0.08) !important;
 }
 .tk-slider-ready [aria-selected="true"] { color: #ffffff !important; }
+.tk-chip {
+    background: rgba(255, 255, 255, 0.85) !important;
+    box-shadow: 0 2px 10px rgba(20, 30, 50, 0.06) !important;
+}
+.tk-logo-wrap {
+    background: radial-gradient(ellipse at center, rgba(45,108,223,0.10) 0%, rgba(45,108,223,0) 72%);
+    display: inline-block;
+    padding: 14px 30px;
+    border-radius: 20px;
+}
 </style>
 """
