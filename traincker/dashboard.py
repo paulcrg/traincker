@@ -199,7 +199,8 @@ def bloc_suggestions(stations: list, cle: str):
     return resultat
 
 
-_logo_path = Path(__file__).resolve().parent.parent / "assets" / "logo-white.png"
+_nom_logo = "logo-dark.png" if _parametres_globaux.get("theme_clair", False) else "logo-white.png"
+_logo_path = Path(__file__).resolve().parent.parent / "assets" / _nom_logo
 if _logo_path.exists():
     _logo_b64 = base64.b64encode(_logo_path.read_bytes()).decode()
     st.markdown(
@@ -232,7 +233,7 @@ with col_demo_toggle:
 
 if st.session_state.demo_mode:
     st.markdown(
-        '<div class="tk-banner-alert">Mode démo actif — les données affichées sont fictives.</div>',
+        f'<div class="tk-banner-alert">{t("mode_demo_actif", _langue)}</div>',
         unsafe_allow_html=True,
     )
 
@@ -280,15 +281,15 @@ st.markdown(
     f"""
     <div class="tk-chip-row">
         <div class="tk-chip">
-            <span class="tk-chip-label">Trajets actifs</span>
+            <span class="tk-chip-label">{t("chip_trajets_actifs", _langue)}</span>
             <span class="tk-chip-value">{_stats_rapides['trajets_actifs']}</span>
         </div>
         <div class="tk-chip">
-            <span class="tk-chip-label">Dernière collecte</span>
+            <span class="tk-chip-label">{t("chip_derniere_collecte", _langue)}</span>
             <span class="tk-chip-value">{_stats_rapides['derniere_collecte']}</span>
         </div>
         <div class="tk-chip">
-            <span class="tk-chip-label">Alertes envoyées</span>
+            <span class="tk-chip-label">{t("chip_alertes", _langue)}</span>
             <span class="tk-chip-value">{_stats_rapides['nb_alertes']}</span>
         </div>
     </div>
@@ -326,7 +327,7 @@ st.markdown(TAB_SLIDER_JS, unsafe_allow_html=True)
 
 with tab_recherche:
     with st.container(border=True, key="card_recherche"):
-        st.markdown(titre_section("search", "Prochains départs"), unsafe_allow_html=True)
+        st.markdown(titre_section("search", t("prochains_departs", _langue)), unsafe_allow_html=True)
         st.markdown(
             '<p class="tk-hint">Tape le nom d\'une gare (3 caractères minimum) '
             "pour voir ses prochains départs.</p>",
@@ -350,7 +351,7 @@ with tab_recherche:
                 label_visibility="collapsed",
             )
         with col_refresh:
-            if st.button("Rafraîchir", key="refresh_recherche", use_container_width=True):
+            if st.button(t("rafraichir", _langue), key="refresh_recherche", use_container_width=True):
                 rechercher_gares_cache.clear()
                 obtenir_departs_et_perturbations_gare.clear()
                 st.rerun()
@@ -413,15 +414,15 @@ with tab_recherche:
                 if disruptions:
                     st.markdown(
                         f'<p class="tk-status-line"><span class="tk-dot tk-dot-alert"></span>'
-                        f"Perturbations en cours</p>",
+                        f'{t("perturbations_en_cours", _langue)}</p>',
                         unsafe_allow_html=True,
                     )
                     for p in disruptions:
                         st.write(f"- **{p['titre']}** : {p['message']}")
                 else:
                     st.markdown(
-                        '<p class="tk-status-line"><span class="tk-dot tk-dot-ok"></span>'
-                        "Aucune perturbation signalée</p>",
+                        f'<p class="tk-status-line"><span class="tk-dot tk-dot-ok"></span>'
+                        f'{t("aucune_perturbation", _langue)}</p>',
                         unsafe_allow_html=True,
                     )
 
@@ -442,7 +443,7 @@ with tab_recherche:
 
 with tab_favoris:
     with st.container(border=True, key="card_favoris_liste"):
-        st.markdown(titre_section("star", "Trajets favoris"), unsafe_allow_html=True)
+        st.markdown(titre_section("star", t("trajets_favoris", _langue)), unsafe_allow_html=True)
 
         if not _infos_favoris:
             st.info("Aucun trajet favori configuré pour l'instant. Ajoutes-en un ci-dessous.")
@@ -537,7 +538,7 @@ with tab_favoris:
                     st.markdown('<div class="tk-divider"></div>', unsafe_allow_html=True)
 
     with st.container(border=True, key="card_favoris_ajout"):
-        st.markdown(titre_section("plus", "Ajouter un trajet favori"), unsafe_allow_html=True)
+        st.markdown(titre_section("plus", t("ajouter_trajet", _langue)), unsafe_allow_html=True)
         st.markdown(
             '<p class="tk-hint">Cherche une gare de départ et d\'arrivée, '
             "clique sur une suggestion, puis valide.</p>",
@@ -621,7 +622,7 @@ with tab_favoris:
 
 with tab_stats:
     with st.container(border=True, key="card_stats"):
-        st.markdown(titre_section("chart", "Statistiques de ponctualité"), unsafe_allow_html=True)
+        st.markdown(titre_section("chart", t("statistiques_ponctualite", _langue)), unsafe_allow_html=True)
 
         try:
             df = charger_donnees()
@@ -916,22 +917,30 @@ suite de tests automatisés (pytest), historique Git structuré par fonctionnali
 
     with st.container(border=True, key="card_accessibilite"):
         st.markdown(titre_section("eye", t("accessibilite", _langue)), unsafe_allow_html=True)
+        st.markdown(
+            f'<p class="tk-hint">{t("applique_immediat", _langue)}</p>',
+            unsafe_allow_html=True,
+        )
 
         col_contraste, col_police = st.columns(2)
         with col_contraste:
             contraste_eleve = st.checkbox(
-                "Contraste élevé",
+                t("contraste_eleve_label", _langue),
                 value=_parametres_globaux.get("contraste_eleve", False),
                 key="param_contraste",
             )
         with col_police:
             taille_police = st.selectbox(
-                "Taille du texte",
+                t("taille_texte", _langue),
                 options=["normale", "grande", "tres_grande"],
                 index=["normale", "grande", "tres_grande"].index(
                     _parametres_globaux.get("taille_police", "normale")
                 ),
-                format_func=lambda v: {"normale": "Normale", "grande": "Grande", "tres_grande": "Très grande"}[v],
+                format_func=lambda v: {
+                    "normale": t("taille_normale", _langue),
+                    "grande": t("taille_grande", _langue),
+                    "tres_grande": t("taille_tres_grande", _langue),
+                }[v],
                 key="param_taille_police",
             )
 
@@ -943,21 +952,31 @@ suite de tests automatisés (pytest), historique Git structuré par fonctionnali
                 key="param_theme_clair",
             )
         with col_langue:
+            langues_disponibles = ["fr", "en", "de", "no", "sv"]
             langue_choisie = st.selectbox(
                 t("langue", _langue),
-                options=["fr", "en"],
-                index=["fr", "en"].index(_parametres_globaux.get("langue", "fr")),
-                format_func=lambda v: {"fr": "Français", "en": "English"}[v],
+                options=langues_disponibles,
+                index=langues_disponibles.index(_parametres_globaux.get("langue", "fr")),
+                format_func=lambda v: {
+                    "fr": "Français", "en": "English", "de": "Deutsch",
+                    "no": "Norsk", "sv": "Svenska",
+                }[v],
                 key="param_langue",
             )
 
-        if st.button("Appliquer", key="appliquer_accessibilite"):
-            maj = charger_parametres()
-            maj["contraste_eleve"] = contraste_eleve
-            maj["taille_police"] = taille_police
-            maj["theme_clair"] = theme_clair
-            maj["langue"] = langue_choisie
-            sauvegarder_parametres(maj)
+        _valeurs_access_actuelles = {
+            "contraste_eleve": contraste_eleve,
+            "taille_police": taille_police,
+            "theme_clair": theme_clair,
+            "langue": langue_choisie,
+        }
+        _valeurs_access_sauvees = {
+            cle: _parametres_globaux.get(cle) for cle in _valeurs_access_actuelles
+        }
+        if _valeurs_access_actuelles != _valeurs_access_sauvees:
+            _maj_access = charger_parametres()
+            _maj_access.update(_valeurs_access_actuelles)
+            sauvegarder_parametres(_maj_access)
             st.rerun()
 
     with st.container(border=True, key="card_historique"):
@@ -1005,13 +1024,13 @@ suite de tests automatisés (pytest), historique Git structuré par fonctionnali
                 st.rerun()
 
     with st.container(border=True, key="card_support"):
-        st.markdown(titre_section("alert", "Un problème ?"), unsafe_allow_html=True)
+        st.markdown(titre_section("alert", t("un_probleme", _langue)), unsafe_allow_html=True)
         url_issue = (
             "https://github.com/paulcrg/traincker/issues/new"
             "?title=Bug%20signal%C3%A9%20depuis%20le%20dashboard"
             "&body=Décris%20le%20problème%20rencontré%20ici."
         )
-        st.link_button("Signaler un bug sur GitHub", url_issue, use_container_width=True)
+        st.link_button(t("signaler_bug", _langue), url_issue, use_container_width=True)
 
 st.markdown(
     '<div class="tk-footer">'
