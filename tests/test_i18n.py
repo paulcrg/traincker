@@ -16,4 +16,10 @@ def test_cle_inconnue_retourne_la_cle():
 
 
 def test_langue_inconnue_replie_sur_francais():
-    assert t("tab_recherche", langue="de") == "Recherche"
+    assert t("tab_recherche", langue="it") == "Recherche"
+
+
+def test_nouvelles_langues_disponibles():
+    assert t("tab_recherche", langue="de") == "Suche"
+    assert t("tab_recherche", langue="no") == "Søk"
+    assert t("tab_recherche", langue="sv") == "Sök"
