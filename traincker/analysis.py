@@ -1,8 +1,8 @@
 """
 Analyse de données de ponctualité avec pandas/numpy.
 
-Ce module lit les données historisées par traincker/collector.py dans
-data/processed/departures.csv.
+Lit les données depuis Supabase si configuré (voir traincker/db.py), sinon
+depuis le CSV local historisé par traincker/collector.py.
 """
 
 from pathlib import Path
@@ -11,19 +11,30 @@ import numpy as np
 import pandas as pd
 
 from traincker.collector import CSV_PATH as DATA_PATH
+from traincker.db import charger_departs, est_configure
 
 FORMAT_DATE_NAVITIA = "%Y%m%dT%H%M%S"
 JOURS_FR = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"]
 
 
 def charger_donnees(path: Path = DATA_PATH) -> pd.DataFrame:
-    """Charge le CSV historisé des départs en DataFrame pandas."""
-    if not path.exists():
-        raise FileNotFoundError(
-            f"Aucune donnée historisée trouvée à {path}. "
-            "Lance d'abord `python main.py surveiller` pour collecter des données."
-        )
-    df = pd.read_csv(path)
+    """Charge les départs historisés (Supabase si configuré, sinon CSV local)."""
+    if est_configure():
+        lignes = charger_departs()
+        if not lignes:
+            raise FileNotFoundError(
+                "Aucune donnée historisée dans Supabase pour l'instant. "
+                "Laisse la surveillance GitHub Actions tourner un moment."
+            )
+        df = pd.DataFrame(lignes)
+    else:
+        if not path.exists():
+            raise FileNotFoundError(
+                f"Aucune donnée historisée trouvée à {path}. "
+                "Lance d'abord `python main.py surveiller` pour collecter des données."
+            )
+        df = pd.read_csv(path)
+
     for col in ["heure_theorique", "heure_prevue"]:
         df[col] = pd.to_datetime(df[col], format=FORMAT_DATE_NAVITIA, errors="coerce")
     df = df.dropna(subset=["heure_theorique", "heure_prevue"])
@@ -72,10 +83,7 @@ def tendance_retard_dans_le_temps(df: pd.DataFrame, freq: str = "D") -> pd.Serie
 
 
 def heatmap_retards_heure_jour(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Tableau croisé jour de la semaine x heure de la journée, valeur =
-    retard moyen en minutes. Utile pour repérer les créneaux à risque.
-    """
+    """Tableau croisé jour de la semaine x heure de la journée, retard moyen en minutes."""
     df = calculer_retard_minutes(df)
     df = df.copy()
     df["jour"] = df["heure_theorique"].dt.dayofweek.map(lambda i: JOURS_FR[i])
@@ -85,11 +93,7 @@ def heatmap_retards_heure_jour(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def detecter_tendance(df: pd.DataFrame, jours_recents: int = 7) -> dict:
-    """
-    Compare le retard moyen des `jours_recents` derniers jours à la période
-    précédente de même durée, pour détecter une amélioration/dégradation.
-    Retourne un dict vide si pas assez de données pour comparer.
-    """
+    """Compare le retard moyen récent à la période précédente de même durée."""
     df = calculer_retard_minutes(df)
     df = df.set_index("heure_theorique").sort_index()
     if df.empty:
