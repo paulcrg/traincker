@@ -33,9 +33,11 @@ jobs:
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: python main.py verifier
 
-      - name: Sauvegarder les données mises à jour
+      - name: Sauvegarder les données mises à jour (repli local uniquement)
         run: |
           git config user.name "traincker-bot"
           git config user.email "actions@github.com"
