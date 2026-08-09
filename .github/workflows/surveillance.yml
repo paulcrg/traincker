@@ -2,9 +2,11 @@ name: Surveillance Traincker
 
 on:
   schedule:
-    # Toutes les 15 minutes. GitHub ne garantit pas l'horaire exact en cas
-    # de forte charge (délai de quelques minutes possible), c'est normal.
-    - cron: "*/15 * * * *"
+    # Décalé des minutes rondes (:00/:15/:30/:45) exprès : GitHub recommande
+    # d'éviter ces créneaux, les plus chargés car tout le monde les utilise.
+    # Reste "best effort" côté GitHub : aucune garantie d'horaire exact,
+    # même avec ce décalage, mais ça réduit nettement les gros retards.
+    - cron: "7-59/15 * * * *"
   workflow_dispatch: {}  # permet de le déclencher manuellement depuis l'onglet Actions
 
 jobs:
