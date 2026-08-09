@@ -18,8 +18,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_pdf import PdfPages
+# matplotlib est importé plus loin, uniquement dans l'onglet Statistiques :
+# c'est une lib lourde, inutile de payer son coût d'import à chaque démarrage
+# si l'utilisateur ne consulte jamais les stats.
 
 from traincker.api_client import NavitiaClient, NavitiaAPIError
 from traincker.favoris import charger_favoris, sauvegarder_favoris
@@ -174,6 +175,33 @@ def obtenir_next_depart_et_perturbations(gare_depart_id: str, gare_arrivee_id: s
             logger(f"Mode dégradé activé pour le trajet {gare_depart_id}->{gare_arrivee_id}", niveau="WARNING")
             return tuple(valeur)
         return None, []
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def obtenir_donnees_stats():
+    """
+    Charge les données et calcule toutes les stats en un seul bloc mis en
+    cache. Streamlit ré-exécute le code de TOUS les onglets à chaque
+    interaction (même ceux non visibles) : sans ce cache, ce pipeline pandas
+    tournerait à chaque clic n'importe où dans l'app, pas juste sur l'onglet
+    Statistiques. ttl=300s car les données ne changent qu'environ toutes les
+    15 min (cadence de la surveillance GitHub Actions).
+    """
+    df = charger_donnees()  # lève FileNotFoundError si rien à charger, géré à l'appel
+    stats_ligne = stats_ponctualite_par_ligne(df)
+    stats_gare = stats_ponctualite_par_gare(df)
+    tendance_temporelle = tendance_retard_dans_le_temps(df)
+    pivot_heatmap = heatmap_retards_heure_jour(df)
+    tendance_info = detecter_tendance(df)
+    temps_perdu = temps_perdu_cumule_minutes(df)
+    return {
+        "stats_ligne": stats_ligne,
+        "stats_gare": stats_gare,
+        "tendance_temporelle": tendance_temporelle,
+        "pivot_heatmap": pivot_heatmap,
+        "tendance_info": tendance_info,
+        "temps_perdu": temps_perdu,
+    }
 
 
 def obtenir_infos_favoris(favoris: list) -> list:
@@ -635,25 +663,30 @@ with tab_stats:
         st.markdown(titre_section("chart", t("statistiques_ponctualite", _langue)), unsafe_allow_html=True)
 
         try:
-            df = charger_donnees()
+            donnees_stats = obtenir_donnees_stats()
         except FileNotFoundError:
             st.info(
                 "Aucune donnée historisée pour l'instant. Lance "
                 "`python main.py surveiller` un moment pour commencer à collecter des données."
             )
         else:
-            if df.empty:
+            stats = donnees_stats["stats_ligne"]
+            if stats.empty:
                 st.info("Pas encore assez de données exploitables pour calculer des stats.")
             else:
-                stats = stats_ponctualite_par_ligne(df)
+                # matplotlib n'est importé qu'ici : coûte cher au premier import,
+                # inutile de payer ce prix si l'utilisateur ne regarde jamais les stats.
+                import matplotlib.pyplot as plt
+                from matplotlib.backends.backend_pdf import PdfPages
+
                 stats_affichage = formater_stats_affichage(stats)
 
                 synthese = generer_synthese(stats)
                 if synthese:
                     st.markdown(f'<div class="tk-insight">{synthese}</div>', unsafe_allow_html=True)
 
-                temps_perdu = temps_perdu_cumule_minutes(df)
-                tendance_info = detecter_tendance(df)
+                temps_perdu = donnees_stats["temps_perdu"]
+                tendance_info = donnees_stats["tendance_info"]
 
                 col_temps_perdu, col_tendance = st.columns(2)
                 with col_temps_perdu:
@@ -710,17 +743,15 @@ with tab_stats:
                 st.pyplot(fig_retard)
 
                 st.subheader("Évolution du retard moyen dans le temps")
-                tendance = tendance_retard_dans_le_temps(df)
-                fig_tendance = graphe_tendance_temporelle(tendance)
+                fig_tendance = graphe_tendance_temporelle(donnees_stats["tendance_temporelle"])
                 st.pyplot(fig_tendance)
 
                 st.divider()
                 st.subheader("Fiabilité par gare")
-                stats_gare = stats_ponctualite_par_gare(df)
-                st.dataframe(formater_stats_affichage(stats_gare), use_container_width=True)
+                st.dataframe(formater_stats_affichage(donnees_stats["stats_gare"]), use_container_width=True)
 
                 st.subheader("Répartition des retards (jour x heure)")
-                pivot = heatmap_retards_heure_jour(df)
+                pivot = donnees_stats["pivot_heatmap"]
                 if pivot.dropna(how="all").empty:
                     st.caption("Pas encore assez de données pour cette vue.")
                 else:
