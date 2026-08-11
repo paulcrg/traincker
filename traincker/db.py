@@ -12,10 +12,12 @@ et le reste du code retombe sur les fichiers locaux (CSV/JSON).
 """
 
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from typing import Optional
 
 from dotenv import load_dotenv
+
+from traincker.tz_utils import maintenant_utc, parser_utc_tolerant
 
 load_dotenv()
 
@@ -90,8 +92,8 @@ def alerte_deja_envoyee(cle: str, delai_secondes: int) -> Optional[bool]:
     reponse = client.table("alertes_envoyees").select("horodatage").eq("cle", cle).execute()
     if not reponse.data:
         return False
-    horodatage = datetime.fromisoformat(reponse.data[0]["horodatage"])
-    return (datetime.now(timezone.utc) - horodatage) < timedelta(seconds=delai_secondes)
+    horodatage = parser_utc_tolerant(reponse.data[0]["horodatage"])
+    return (maintenant_utc() - horodatage) < timedelta(seconds=delai_secondes)
 
 
 def marquer_alerte_envoyee(cle: str) -> bool:
@@ -101,6 +103,6 @@ def marquer_alerte_envoyee(cle: str) -> bool:
         return False
 
     client.table("alertes_envoyees").upsert(
-        {"cle": cle, "horodatage": datetime.now(timezone.utc).isoformat()}
+        {"cle": cle, "horodatage": maintenant_utc().isoformat()}
     ).execute()
     return True
