@@ -2,9 +2,8 @@
 Wrapper autour de l'API SNCF (basée sur Navitia).
 
 Documentation officielle : https://doc.navitia.io/#getting-started
-
-Authentification : Basic Auth avec la clé API en tant que username,
-et un mot de passe vide.
+Authentification : Basic Auth avec la clé API en tant que username, mot de
+passe vide.
 """
 
 import os
@@ -13,13 +12,15 @@ from typing import Optional
 import requests
 from dotenv import load_dotenv
 
+from traincker.utils import simplifier_nom_gare, humaniser_ligne
+
 load_dotenv()
 
 BASE_URL = "https://api.sncf.com/v1/coverage/sncf"
 
 # Délai maximum avant abandon d'une requête (secondes). Sans ça, une
 # connexion lente ou l'API distante qui traîne peut bloquer le dashboard
-# indéfiniment - c'est la cause la plus fréquente d'un site qui "rame".
+# indéfiniment.
 TIMEOUT_SECONDES = 8
 
 
@@ -40,7 +41,6 @@ class NavitiaClient:
         self.session.auth = (self.api_key, "")
 
     def _get(self, endpoint: str, params: Optional[dict] = None) -> dict:
-        """Effectue une requête GET sur l'API et gère les erreurs de base."""
         url = f"{BASE_URL}{endpoint}"
         try:
             response = self.session.get(
@@ -63,29 +63,20 @@ class NavitiaClient:
         return response.json()
 
     def search_station(self, query: str, count: int = 5) -> list[dict]:
-        """
-        Recherche une ou plusieurs gares à partir d'un nom (ex: "Dijon").
-
-        Retourne une liste de dicts avec au minimum 'id' et 'name'.
-        """
+        """Recherche une ou plusieurs gares à partir d'un nom (ex: "Dijon")."""
         data = self._get(
             "/places",
             params={"q": query, "type[]": "stop_area", "count": count},
         )
         places = data.get("places", [])
         return [
-            {"id": place["id"], "name": place["name"]}
+            {"id": place["id"], "name": simplifier_nom_gare(place["name"])}
             for place in places
             if place.get("embedded_type") == "stop_area"
         ]
 
     def get_next_departures(self, stop_area_id: str, count: int = 10) -> list[dict]:
-        """
-        Récupère les prochains départs pour une gare donnée (stop_area).
-
-        Retourne une liste de dicts simplifiés : ligne, direction, heure
-        prévue, heure théorique, statut (à l'heure / retard / supprimé).
-        """
+        """Récupère les prochains départs pour une gare donnée (stop_area)."""
         data = self._get(
             f"/stop_areas/{stop_area_id}/departures",
             params={"count": count},
@@ -98,8 +89,8 @@ class NavitiaClient:
 
             departures.append(
                 {
-                    "ligne": info.get("label") or info.get("code"),
-                    "direction": info.get("direction"),
+                    "ligne": humaniser_ligne(info.get("label") or info.get("code")),
+                    "direction": simplifier_nom_gare(info.get("direction")),
                     "heure_theorique": stop_dt.get("base_departure_date_time"),
                     "heure_prevue": stop_dt.get("departure_date_time"),
                     "statut": stop_dt.get("data_freshness", "base_schedule"),
