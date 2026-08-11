@@ -1,12 +1,14 @@
 """
-Journal personnel : garde une trace des recherches et trajets consultés au
-fil du temps. Indépendant des statistiques de ponctualité (qui portent sur
-les données SNCF), ceci concerne l'activité de l'utilisateur lui-même.
+Journal personnel : trace les recherches et trajets consultés au fil du
+temps. Les horodatages sont stockés directement en heure de Paris (plutôt
+que l'heure du serveur, UTC sur GitHub Actions/Render) pour être corrects
+à l'affichage sans conversion supplémentaire.
 """
 
 import csv
-from datetime import datetime
 from pathlib import Path
+
+from traincker.tz_utils import maintenant_paris
 
 JOURNAL_PATH = Path(__file__).resolve().parent.parent / "data" / "processed" / "journal.csv"
 COLONNES = ["horodatage", "type", "detail"]
@@ -23,7 +25,7 @@ def ajouter_entree(type_evenement: str, detail: str) -> None:
             writer.writeheader()
         writer.writerow(
             {
-                "horodatage": datetime.now().isoformat(),
+                "horodatage": maintenant_paris().replace(tzinfo=None).isoformat(),
                 "type": type_evenement,
                 "detail": detail,
             }

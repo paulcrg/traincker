@@ -1,7 +1,13 @@
-"""Journal d'événements simple, consultable depuis le dashboard sans terminal."""
+"""
+Journal technique, consultable depuis le dashboard sans terminal.
 
-from datetime import datetime
+Les horodatages sont stockés directement en heure de Paris (voir
+traincker/journal.py pour la même logique côté journal personnel).
+"""
+
 from pathlib import Path
+
+from traincker.tz_utils import maintenant_paris
 
 LOG_PATH = Path(__file__).resolve().parent.parent / "data" / "processed" / "traincker.log"
 MAX_LIGNES = 500
@@ -10,7 +16,8 @@ MAX_LIGNES = 500
 def logger(message: str, niveau: str = "INFO") -> None:
     """Ajoute une ligne horodatée au journal, en limitant sa taille."""
     LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-    ligne = f"{datetime.now():%Y-%m-%d %H:%M:%S} [{niveau}] {message}\n"
+    horodatage = maintenant_paris().replace(tzinfo=None)
+    ligne = f"{horodatage:%Y-%m-%d %H:%M:%S} [{niveau}] {message}\n"
 
     lignes_existantes = []
     if LOG_PATH.exists():
