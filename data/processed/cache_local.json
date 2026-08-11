@@ -1,0 +1,96 @@
+{
+  "favori:stop_area:SNCF:87713529:stop_area:SNCF:87713040": {
+    "valeur": [
+      {
+        "ligne": "C15",
+        "direction": "Chalon-sur-Saône (Chalon-sur-Saône)",
+        "heure_theorique": "20260808T181000",
+        "heure_prevue": "20260808T181000",
+        "statut": "base_schedule"
+      },
+      []
+    ],
+    "horodatage": 1786204002.3776248
+  },
+  "favori:stop_area:SNCF:87713040:stop_area:SNCF:87713529": {
+    "valeur": [
+      {
+        "ligne": "Strasbourg - Montpellier Saint-Roch",
+        "direction": "Metz (Metz)",
+        "heure_theorique": "20260808T175000",
+        "heure_prevue": "20260808T175000",
+        "statut": "base_schedule"
+      },
+      []
+    ],
+    "horodatage": 1786204002.607215
+  },
+  "recherche:paris": {
+    "valeur": [
+      {
+        "id": "stop_area:SNCF:87271007",
+        "name": "Paris Nord (Paris)"
+      },
+      {
+        "id": "stop_area:SNCF:87686006",
+        "name": "Paris - Gare de Lyon - Hall 1 & 2 (Paris)"
+      },
+      {
+        "id": "stop_area:SNCF:87113001",
+        "name": "Paris Est (Paris)"
+      },
+      {
+        "id": "stop_area:SNCF:87384008",
+        "name": "Paris Saint-Lazare (Paris)"
+      },
+      {
+        "id": "stop_area:SNCF:87547000",
+        "name": "Paris Austerlitz (Paris)"
+      }
+    ],
+    "horodatage": 1785651148.092307
+  },
+  "recherche:dijon": {
+    "valeur": [
+      {
+        "id": "stop_area:SNCF:87713040",
+        "name": "Dijon (Dijon)"
+      },
+      {
+        "id": "stop_area:SNCF:87713008",
+        "name": "Dijon Porte Neuve (Dijon)"
+      },
+      {
+        "id": "stop_area:SNCF:87712182",
+        "name": "Neuilly-lès-Dijon (Neuilly-Crimolois)"
+      }
+    ],
+    "horodatage": 1785651154.2953162
+  },
+  "favori:stop_area:SNCF:87384008:stop_area:SNCF:87713040": {
+    "valeur": [
+      {
+        "ligne": "E",
+        "direction": "Nanterre La Folie (Nanterre)",
+        "heure_theorique": "20260808T174800",
+        "heure_prevue": "20260808T174800",
+        "statut": "base_schedule"
+      },
+      []
+    ],
+    "horodatage": 1786204002.8344333
+  },
+  "favori:stop_area:SNCF:87713040:stop_area:SNCF:87384008": {
+    "valeur": [
+      {
+        "ligne": "K7",
+        "direction": "Paris Bercy Bourgogne - Pays d'Auvergne (Paris)",
+        "heure_theorique": "20260802T153400",
+        "heure_prevue": "20260802T153400",
+        "statut": "base_schedule"
+      },
+      []
+    ],
+    "horodatage": 1785677182.9675527
+  }
+}

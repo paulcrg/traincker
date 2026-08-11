@@ -1,10 +1,12 @@
 {
   "silence_debut": "22:00",
   "silence_fin": "07:00",
-  "canal_discord": false,
-  "canal_email": true,
+  "canal_discord": true,
+  "canal_email": false,
   "email_destinataire": "paul.cremouxguiblain21@gmail.com",
   "alertes_meteo": true,
   "contraste_eleve": false,
-  "taille_police": "normale"
+  "taille_police": "normale",
+  "langue": "fr",
+  "theme_clair": false
 }
