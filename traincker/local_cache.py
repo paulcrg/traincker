@@ -1,13 +1,4 @@
-"""
-Cache disque simple pour les recherches de gares et les derniers résultats API.
-
-Sert deux objectifs :
-- Accélérer les recherches répétées sans redemander l'API à chaque redémarrage
-  du dashboard (contrairement au cache mémoire de Streamlit, celui-ci survit
-  aux redémarrages).
-- Permettre un mode dégradé : si l'API SNCF est indisponible, on retombe sur
-  la dernière réponse connue plutôt que de ne rien afficher.
-"""
+"""Cache disque simple pour les recherches de gares et le mode dégradé."""
 
 import json
 import time
@@ -15,7 +6,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 CACHE_PATH = Path(__file__).resolve().parent.parent / "data" / "processed" / "cache_local.json"
-DUREE_VALIDITE_DEFAUT = 60 * 60 * 24  # 24h
+DUREE_VALIDITE_DEFAUT = 60 * 60 * 24
 
 
 def _charger_cache() -> dict:
@@ -35,7 +26,6 @@ def _sauvegarder_cache(cache: dict) -> None:
 
 
 def obtenir(cle: str, duree_validite: int = DUREE_VALIDITE_DEFAUT) -> Optional[Any]:
-    """Retourne la valeur en cache si elle existe et n'est pas expirée, sinon None."""
     entree = _charger_cache().get(cle)
     if not entree:
         return None
@@ -45,10 +35,6 @@ def obtenir(cle: str, duree_validite: int = DUREE_VALIDITE_DEFAUT) -> Optional[A
 
 
 def obtenir_meme_expire(cle: str) -> Optional[tuple]:
-    """
-    Retourne (valeur, horodatage_unix) même si l'entrée est expirée. Utilisé
-    pour le mode dégradé : mieux vaut une donnée ancienne qu'aucune donnée.
-    """
     entree = _charger_cache().get(cle)
     if not entree:
         return None

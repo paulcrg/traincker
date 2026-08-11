@@ -20,7 +20,6 @@ DEFAUTS = {
 
 
 def charger_parametres(path: Path = PARAMETRES_PATH) -> dict:
-    """Charge les paramètres, en complétant avec les valeurs par défaut manquantes."""
     if not path.exists():
         return DEFAUTS.copy()
     with open(path, encoding="utf-8") as f:

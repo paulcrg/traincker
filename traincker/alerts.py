@@ -1,9 +1,4 @@
-"""
-Envoi d'alertes via webhook Discord et/ou email.
-
-Discord : Paramètres du salon > Intégrations > Webhooks > Nouveau webhook
-Email : nécessite SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD dans .env
-"""
+"""Envoi d'alertes via webhook Discord et/ou email."""
 
 import os
 import smtplib
@@ -17,61 +12,48 @@ load_dotenv()
 
 
 class AlertError(Exception):
-    """Erreur levée quand l'envoi d'une alerte échoue."""
+    pass
 
 
-# Correspondance entre les codes de gravité Navitia et un label/icône lisible
 GRAVITE_LABELS = {
-    "NO_SERVICE": ("Critique", "🔴"),
-    "REDUCED_SERVICE": ("Important", "🟠"),
-    "SIGNIFICANT_DELAYS": ("Important", "🟠"),
-    "DETOUR": ("Modéré", "🟡"),
-    "MODIFIED_SERVICE": ("Modéré", "🟡"),
-    "STOP_MOVED": ("Modéré", "🟡"),
-    "ADDITIONAL_SERVICE": ("Info", "🔵"),
-    "OTHER_EFFECT": ("Mineur", "🟡"),
-    "UNKNOWN_EFFECT": ("Mineur", "🟡"),
+    "NO_SERVICE": ("Critique", "Rouge"),
+    "REDUCED_SERVICE": ("Important", "Orange"),
+    "SIGNIFICANT_DELAYS": ("Important", "Orange"),
+    "DETOUR": ("Modéré", "Jaune"),
+    "MODIFIED_SERVICE": ("Modéré", "Jaune"),
+    "STOP_MOVED": ("Modéré", "Jaune"),
+    "ADDITIONAL_SERVICE": ("Info", "Bleu"),
+    "OTHER_EFFECT": ("Mineur", "Jaune"),
+    "UNKNOWN_EFFECT": ("Mineur", "Jaune"),
 }
 
 
 def gravite_perturbation(severite: Optional[str]) -> tuple[str, str]:
-    """Retourne (label, icône) pour une perturbation, à partir de son code Navitia."""
-    return GRAVITE_LABELS.get(severite, ("Mineur", "🟡"))
+    return GRAVITE_LABELS.get(severite, ("Mineur", "Jaune"))
 
 
 def est_critique(severite: Optional[str]) -> bool:
-    """Une perturbation critique (suppression de service) ignore les heures de silence."""
     return severite == "NO_SERVICE"
 
 
 def send_discord_alert(message: str, webhook_url: Optional[str] = None) -> None:
-    """Envoie un message texte simple sur un salon Discord via webhook."""
     url = webhook_url or os.getenv("DISCORD_WEBHOOK_URL")
     if not url:
-        raise ValueError(
-            "URL de webhook Discord manquante. Ajoute DISCORD_WEBHOOK_URL dans .env"
-        )
+        raise ValueError("URL de webhook Discord manquante. Ajoute DISCORD_WEBHOOK_URL dans .env")
 
     response = requests.post(url, json={"content": message}, timeout=8)
-
     if response.status_code != 204:
-        raise AlertError(
-            f"Échec de l'envoi Discord ({response.status_code}) : {response.text}"
-        )
+        raise AlertError(f"Échec de l'envoi Discord ({response.status_code}) : {response.text}")
 
 
 def send_email_alert(subject: str, message: str, destinataire: str) -> None:
-    """Envoie une alerte par email via SMTP (identifiants dans .env)."""
     host = os.getenv("SMTP_HOST")
     port = int(os.getenv("SMTP_PORT", "587"))
     user = os.getenv("SMTP_USER")
     password = os.getenv("SMTP_PASSWORD")
 
     if not all([host, user, password, destinataire]):
-        raise ValueError(
-            "Configuration email incomplète. Vérifie SMTP_HOST, SMTP_USER, "
-            "SMTP_PASSWORD dans .env et l'adresse destinataire."
-        )
+        raise ValueError("Configuration email incomplète (SMTP_HOST/USER/PASSWORD, destinataire).")
 
     msg = MIMEText(message)
     msg["Subject"] = subject
@@ -85,9 +67,8 @@ def send_email_alert(subject: str, message: str, destinataire: str) -> None:
 
 
 def format_perturbation_message(trajet_nom: str, perturbations: list[dict]) -> str:
-    """Construit un message lisible à partir d'une liste de perturbations, avec gravité."""
-    lignes = [f"**Perturbation sur ton trajet « {trajet_nom} »**"]
+    lignes = [f"Perturbation sur ton trajet « {trajet_nom} »"]
     for p in perturbations:
-        label, icone = gravite_perturbation(p.get("severite"))
-        lignes.append(f"{icone} [{label}] {p['titre']} : {p['message']}")
+        label, _ = gravite_perturbation(p.get("severite"))
+        lignes.append(f"[{label}] {p['titre']} : {p['message']}")
     return "\n".join(lignes)

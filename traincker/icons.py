@@ -34,7 +34,4 @@ def icono(nombre: str, size: int = 16, color: str = "currentColor", stroke_width
 
 
 def titre_section(nombre_icone: str, texte: str) -> str:
-    return (
-        f'<div class="tk-section-title">{icono(nombre_icone, size=18)}'
-        f"<span>{texte}</span></div>"
-    )
+    return f'<div class="tk-section-title">{icono(nombre_icone, size=18)}<span>{texte}</span></div>'

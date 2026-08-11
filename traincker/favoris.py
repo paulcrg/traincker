@@ -9,18 +9,14 @@ CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "favoris.json"
 
 
 def charger_favoris(path: Path = CONFIG_PATH) -> list[Trajet]:
-    """Charge la liste des trajets favoris depuis le fichier JSON."""
     if not path.exists():
         return []
-
     with open(path, encoding="utf-8") as f:
         data = json.load(f)
-
     return [Trajet(**t) for t in data.get("trajets", [])]
 
 
 def sauvegarder_favoris(trajets: list[Trajet], path: Path = CONFIG_PATH) -> None:
-    """Sauvegarde la liste des trajets favoris dans le fichier JSON."""
     data = {
         "trajets": [
             {
@@ -34,5 +30,6 @@ def sauvegarder_favoris(trajets: list[Trajet], path: Path = CONFIG_PATH) -> None
             for t in trajets
         ]
     }
+    path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)

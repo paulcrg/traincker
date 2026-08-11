@@ -18,7 +18,6 @@ JOURS_FR = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanc
 
 
 def charger_donnees(path: Path = DATA_PATH) -> pd.DataFrame:
-    """Charge les départs historisés (Supabase si configuré, sinon CSV local)."""
     if est_configure():
         lignes = charger_departs()
         if not lignes:
@@ -42,48 +41,33 @@ def charger_donnees(path: Path = DATA_PATH) -> pd.DataFrame:
 
 
 def calculer_retard_minutes(df: pd.DataFrame) -> pd.DataFrame:
-    """Ajoute une colonne 'retard_minutes' calculée à partir des deux heures."""
     df = df.copy()
-    df["retard_minutes"] = (
-        df["heure_prevue"] - df["heure_theorique"]
-    ).dt.total_seconds() / 60
+    df["retard_minutes"] = (df["heure_prevue"] - df["heure_theorique"]).dt.total_seconds() / 60
     df["retard_minutes"] = df["retard_minutes"].clip(lower=0)
     return df
 
 
 def stats_ponctualite_par_ligne(df: pd.DataFrame) -> pd.DataFrame:
-    """Retard moyen, écart-type et taux de ponctualité (retard < 5 min), par ligne."""
     df = calculer_retard_minutes(df)
-    stats = df.groupby("ligne")["retard_minutes"].agg(
-        retard_moyen="mean", retard_ecart_type="std", nb_trains="count"
-    )
-    stats["taux_ponctualite"] = df.groupby("ligne")["retard_minutes"].apply(
-        lambda x: np.mean(x < 5) * 100
-    )
+    stats = df.groupby("ligne")["retard_minutes"].agg(retard_moyen="mean", retard_ecart_type="std", nb_trains="count")
+    stats["taux_ponctualite"] = df.groupby("ligne")["retard_minutes"].apply(lambda x: np.mean(x < 5) * 100)
     return stats.sort_values("taux_ponctualite", ascending=False)
 
 
 def stats_ponctualite_par_gare(df: pd.DataFrame) -> pd.DataFrame:
-    """Même chose que par ligne, mais agrégé par gare (score de fiabilité par gare)."""
     df = calculer_retard_minutes(df)
-    stats = df.groupby("gare")["retard_minutes"].agg(
-        retard_moyen="mean", retard_ecart_type="std", nb_trains="count"
-    )
-    stats["taux_ponctualite"] = df.groupby("gare")["retard_minutes"].apply(
-        lambda x: np.mean(x < 5) * 100
-    )
+    stats = df.groupby("gare")["retard_minutes"].agg(retard_moyen="mean", retard_ecart_type="std", nb_trains="count")
+    stats["taux_ponctualite"] = df.groupby("gare")["retard_minutes"].apply(lambda x: np.mean(x < 5) * 100)
     return stats.sort_values("taux_ponctualite", ascending=False)
 
 
 def tendance_retard_dans_le_temps(df: pd.DataFrame, freq: str = "D") -> pd.Series:
-    """Retourne le retard moyen agrégé par période (jour par défaut)."""
     df = calculer_retard_minutes(df)
     df = df.set_index("heure_theorique")
     return df["retard_minutes"].resample(freq).mean()
 
 
 def heatmap_retards_heure_jour(df: pd.DataFrame) -> pd.DataFrame:
-    """Tableau croisé jour de la semaine x heure de la journée, retard moyen en minutes."""
     df = calculer_retard_minutes(df)
     df = df.copy()
     df["jour"] = df["heure_theorique"].dt.dayofweek.map(lambda i: JOURS_FR[i])
@@ -93,7 +77,6 @@ def heatmap_retards_heure_jour(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def detecter_tendance(df: pd.DataFrame, jours_recents: int = 7) -> dict:
-    """Compare le retard moyen récent à la période précédente de même durée."""
     df = calculer_retard_minutes(df)
     df = df.set_index("heure_theorique").sort_index()
     if df.empty:
@@ -129,13 +112,11 @@ def detecter_tendance(df: pd.DataFrame, jours_recents: int = 7) -> dict:
 
 
 def temps_perdu_cumule_minutes(df: pd.DataFrame) -> float:
-    """Somme totale des minutes de retard observées sur toutes les données historisées."""
     df = calculer_retard_minutes(df)
     return round(df["retard_minutes"].sum(), 1)
 
 
 def generer_synthese(stats: pd.DataFrame) -> str:
-    """Génère une phrase de synthèse lisible à partir des statistiques par ligne."""
     if stats.empty:
         return ""
 
@@ -144,10 +125,7 @@ def generer_synthese(stats: pd.DataFrame) -> str:
     taux_moyen = stats["taux_ponctualite"].mean()
 
     if meilleure == pire:
-        return (
-            f"La ligne {meilleure} affiche {stats.loc[meilleure, 'taux_ponctualite']:.0f} % "
-            f"de trains à l'heure en moyenne."
-        )
+        return f"La ligne {meilleure} affiche {stats.loc[meilleure, 'taux_ponctualite']:.0f} % de trains à l'heure en moyenne."
 
     return (
         f"{meilleure} est la ligne la plus fiable "
@@ -158,7 +136,6 @@ def generer_synthese(stats: pd.DataFrame) -> str:
 
 
 def formater_stats_affichage(stats: pd.DataFrame) -> pd.DataFrame:
-    """Formate un DataFrame de stats (ligne ou gare) pour l'affichage, unités intégrées."""
     affichage = pd.DataFrame(index=stats.index)
     affichage["Ponctualité"] = stats["taux_ponctualite"].round(0).astype(int).astype(str) + " %"
     affichage["Retard moyen"] = stats["retard_moyen"].round(1).astype(str) + " min"
