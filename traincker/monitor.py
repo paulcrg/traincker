@@ -1,16 +1,20 @@
 """
 Boucle de surveillance des trajets favoris.
 
-Vérifie périodiquement les perturbations sur chaque trajet actif et
-envoie une alerte (Discord et/ou email) uniquement pour les perturbations
-nouvelles. Respecte les heures de silence configurées (sauf perturbations
-critiques) et peut alerter en cas de météo dégradée.
+Vérifie périodiquement les perturbations sur chaque trajet actif et envoie
+une alerte (Discord et/ou email) pour les perturbations nouvelles. Respecte
+les heures de silence configurées (sauf perturbations critiques), et peut
+alerter en cas de météo dégradée.
+
+Tourne en UTC sur GitHub Actions ; toutes les comparaisons d'heure "murale"
+(silence, logs lisibles) passent explicitement par l'heure de Paris via
+traincker/tz_utils.py, pour rester correctes malgré le fuseau du serveur.
 """
 
 import hashlib
 import json
 import time
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 import schedule
@@ -26,7 +30,7 @@ from traincker.collector import historiser_departs
 from traincker.favoris import charger_favoris
 from traincker.settings import charger_parametres
 from traincker.weather import verifier_meteo_defavorable
-from traincker.reports import envoyer_rapport_hebdomadaire
+from traincker.tz_utils import maintenant_utc, vers_paris, parser_utc_tolerant
 
 ETAT_PATH = (
     Path(__file__).resolve().parent.parent
@@ -35,12 +39,10 @@ ETAT_PATH = (
     / "alertes_envoyees.json"
 )
 
-# Ne pas ré-alerter sur la même perturbation (ou la même alerte météo) avant ce délai
 DELAI_RE_ALERTE = timedelta(hours=6)
 
 
 def _hash_perturbation(p: dict) -> str:
-    """Identifiant stable d'une perturbation, pour détecter les doublons."""
     contenu = f"{p['titre']}|{p['message']}"
     return hashlib.md5(contenu.encode("utf-8")).hexdigest()
 
@@ -58,14 +60,17 @@ def _sauvegarder_etat(etat: dict) -> None:
         json.dump(etat, f, ensure_ascii=False, indent=2)
 
 
-def dans_le_silence(parametres: dict, maintenant: datetime) -> bool:
+def dans_le_silence(parametres: dict, maintenant) -> bool:
     """
-    Détermine si l'heure actuelle tombe dans la plage de silence configurée.
-    Gère le cas d'une plage qui traverse minuit (ex: 22:00 -> 07:00).
+    Détermine si l'heure actuelle tombe dans la plage de silence configurée
+    (en heure de Paris, quel que soit le fuseau du serveur qui exécute ce
+    code). Gère une plage qui traverse minuit (ex: 22:00 -> 07:00).
     """
     debut = parametres.get("silence_debut", "22:00")
     fin = parametres.get("silence_fin", "07:00")
-    heure_actuelle = maintenant.strftime("%H:%M")
+
+    maintenant_local = vers_paris(maintenant) if maintenant.tzinfo else maintenant
+    heure_actuelle = maintenant_local.strftime("%H:%M")
 
     if debut <= fin:
         return debut <= heure_actuelle < fin
@@ -73,7 +78,6 @@ def dans_le_silence(parametres: dict, maintenant: datetime) -> bool:
 
 
 def _envoyer_alerte(message: str, sujet: str, parametres: dict) -> None:
-    """Envoie sur les canaux activés dans les paramètres (Discord, email)."""
     if parametres.get("canal_discord", True):
         send_discord_alert(message)
 
@@ -85,20 +89,17 @@ def _envoyer_alerte(message: str, sujet: str, parametres: dict) -> None:
 
 
 def verifier_favoris(client: NavitiaClient = None) -> None:
-    """
-    Vérifie tous les trajets favoris actifs et envoie une alerte pour toute
-    perturbation nouvelle, en respectant les heures de silence, plus une
-    alerte météo si des conditions dégradées sont détectées.
-    """
+    """Vérifie tous les trajets favoris actifs, alerte si perturbation nouvelle."""
     client = client or NavitiaClient()
     etat = _charger_etat()
     parametres = charger_parametres()
-    maintenant = datetime.now()
+    maintenant = maintenant_utc()
+    maintenant_locale = vers_paris(maintenant)
     silence_actif = dans_le_silence(parametres, maintenant)
 
     trajets = [t for t in charger_favoris() if t.actif]
     if not trajets:
-        print(f"[{maintenant:%H:%M:%S}] Aucun trajet favori actif à vérifier.")
+        print(f"[{maintenant_locale:%H:%M:%S}] Aucun trajet favori actif à vérifier.")
         return
 
     for trajet in trajets:
@@ -113,7 +114,7 @@ def verifier_favoris(client: NavitiaClient = None) -> None:
             historiser_departs(departs_arrivee, trajet.gare_arrivee_nom)
 
         except NavitiaAPIError as e:
-            print(f"[{maintenant:%H:%M:%S}] Erreur API pour {trajet.nom} : {e}")
+            print(f"[{maintenant_locale:%H:%M:%S}] Erreur API pour {trajet.nom} : {e}")
             continue
 
         nouvelles = []
@@ -121,32 +122,29 @@ def verifier_favoris(client: NavitiaClient = None) -> None:
             cle = _hash_perturbation(p)
             derniere_alerte = etat.get(cle)
             deja_recente = derniere_alerte and (
-                maintenant - datetime.fromisoformat(derniere_alerte) < DELAI_RE_ALERTE
+                maintenant - parser_utc_tolerant(derniere_alerte) < DELAI_RE_ALERTE
             )
             if not deja_recente:
                 nouvelles.append(p)
                 etat[cle] = maintenant.isoformat()
 
         if nouvelles:
-            if silence_actif:
-                a_envoyer = [p for p in nouvelles if est_critique(p.get("severite"))]
-            else:
-                a_envoyer = nouvelles
+            a_envoyer = [p for p in nouvelles if est_critique(p.get("severite"))] if silence_actif else nouvelles
 
             if a_envoyer:
                 message = format_perturbation_message(trajet.nom, a_envoyer)
                 _envoyer_alerte(message, f"Traincker - {trajet.nom}", parametres)
                 print(
-                    f"[{maintenant:%H:%M:%S}] Alerte envoyée pour {trajet.nom} "
+                    f"[{maintenant_locale:%H:%M:%S}] Alerte envoyée pour {trajet.nom} "
                     f"({len(a_envoyer)} perturbation(s))"
                 )
             else:
                 print(
-                    f"[{maintenant:%H:%M:%S}] {trajet.nom} : perturbation mineure "
+                    f"[{maintenant_locale:%H:%M:%S}] {trajet.nom} : perturbation mineure "
                     "ignorée (heures de silence)"
                 )
         else:
-            print(f"[{maintenant:%H:%M:%S}] {trajet.nom} : RAS")
+            print(f"[{maintenant_locale:%H:%M:%S}] {trajet.nom} : RAS")
 
         if parametres.get("alertes_meteo", True):
             meteo = verifier_meteo_defavorable(trajet.gare_depart_nom)
@@ -154,11 +152,11 @@ def verifier_favoris(client: NavitiaClient = None) -> None:
                 cle_meteo = f"meteo:{trajet.gare_depart_id}:{meteo['condition']}"
                 derniere = etat.get(cle_meteo)
                 deja_recente = derniere and (
-                    maintenant - datetime.fromisoformat(derniere) < DELAI_RE_ALERTE
+                    maintenant - parser_utc_tolerant(derniere) < DELAI_RE_ALERTE
                 )
                 if not deja_recente:
                     msg_meteo = (
-                        f"**Alerte météo pour « {trajet.nom} »**\n"
+                        f"Alerte météo pour « {trajet.nom} »\n"
                         f"{meteo['condition']} à {trajet.gare_depart_nom} "
                         f"({meteo['temperature']}°C) — le trafic pourrait être affecté."
                     )
@@ -176,7 +174,6 @@ def lancer_surveillance(intervalle_minutes: int = 5) -> None:
     )
     verifier_favoris()
     schedule.every(intervalle_minutes).minutes.do(verifier_favoris)
-    schedule.every().monday.at("08:00").do(envoyer_rapport_hebdomadaire)
 
     while True:
         schedule.run_pending()
