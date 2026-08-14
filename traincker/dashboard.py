@@ -3,6 +3,7 @@ Dashboard Streamlit pour Traincker.
 
 Lancer avec :
     streamlit run traincker/dashboard.py
+    (ou : python -m streamlit run traincker/dashboard.py)
 """
 
 import sys
@@ -18,9 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import streamlit as st
 import pandas as pd
-# matplotlib est importé plus loin, uniquement dans l'onglet Statistiques :
-# c'est une lib lourde, inutile de payer son coût d'import à chaque démarrage
-# si l'utilisateur ne consulte jamais les stats.
+# matplotlib est importé plus loin, uniquement dans l'onglet Statistiques.
 
 from traincker.api_client import NavitiaClient, NavitiaAPIError
 from traincker.favoris import charger_favoris, sauvegarder_favoris
@@ -47,15 +46,20 @@ from traincker.theme import THEME_CSS, TAB_SLIDER_JS, css_accessibilite, CSS_THE
 from traincker.icons import icono, titre_section
 from traincker.monitor import ETAT_PATH
 from traincker.collector import CSV_PATH
-from traincker.demo_data import DemoNavitiaClient, obtenir_favoris_demo
 from traincker.changelog import CHANGELOG
 from traincker.settings import charger_parametres, sauvegarder_parametres
 from traincker.local_cache import obtenir_meme_expire, enregistrer as cache_enregistrer
 from traincker.logs import logger, lire_logs, vider_logs
 from traincker.journal import ajouter_entree, lire_journal, vider_journal
-from traincker.i18n import t
-from traincker.db import charger_departs as db_charger_departs, est_configure as db_configure
+from traincker.i18n import t, formatter
+from traincker.db import charger_dernier_horodatage, est_configure as db_configure
 from traincker.tz_utils import parser_horodatage_affichage
+
+# Site en lecture seule pour la gestion des favoris (déploiement public
+# traincker.app) : évite que des visiteurs modifient les trajets réels du
+# propriétaire. Activé via une variable d'environnement Render, absent en
+# local (donc pleinement éditable sur ta propre machine).
+LECTURE_SEULE = os.getenv("TRAINCKER_READONLY", "").lower() in ("1", "true", "yes")
 
 _favicon_path = Path(__file__).resolve().parent.parent / "assets" / "logo-dashboard-badge.png"
 
@@ -80,33 +84,20 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-FORCE_DEMO = os.getenv("TRAINCKER_FORCE_DEMO", "").lower() in ("1", "true", "yes")
-
-if "demo_mode" not in st.session_state:
-    st.session_state.demo_mode = FORCE_DEMO
 if "mode_degrade" not in st.session_state:
     st.session_state.mode_degrade = None
 
 
 def get_client():
-    if st.session_state.demo_mode:
-        return DemoNavitiaClient()
     return NavitiaClient()
 
 
 def get_favoris():
-    if st.session_state.demo_mode:
-        if "demo_favoris" not in st.session_state:
-            st.session_state.demo_favoris = obtenir_favoris_demo()
-        return st.session_state.demo_favoris
     return charger_favoris()
 
 
 def save_favoris(favoris_liste):
-    if st.session_state.demo_mode:
-        st.session_state.demo_favoris = favoris_liste
-    else:
-        sauvegarder_favoris(favoris_liste)
+    sauvegarder_favoris(favoris_liste)
 
 
 @st.cache_data(ttl=120, show_spinner=False)
@@ -115,8 +106,7 @@ def rechercher_gares_cache(query: str):
     try:
         client = get_client()
         resultat = client.search_station(query)
-        if not st.session_state.demo_mode:
-            cache_enregistrer(cle, resultat)
+        cache_enregistrer(cle, resultat)
         st.session_state.mode_degrade = None
         return resultat
     except NavitiaAPIError:
@@ -137,8 +127,7 @@ def obtenir_departs_et_perturbations_gare(station_id: str):
         departs = client.get_next_departures(station_id, count=10)
         perturbations = client.get_disruptions(station_id)
         resultat = (departs, perturbations)
-        if not st.session_state.demo_mode:
-            cache_enregistrer(cle, resultat)
+        cache_enregistrer(cle, resultat)
         st.session_state.mode_degrade = None
         return resultat
     except NavitiaAPIError:
@@ -161,8 +150,7 @@ def obtenir_next_depart_et_perturbations(gare_depart_id: str, gare_arrivee_id: s
         perturbations += client.get_disruptions(gare_arrivee_id)
         depart = departs[0] if departs else None
         resultat = (depart, perturbations)
-        if not st.session_state.demo_mode:
-            cache_enregistrer(cle, resultat)
+        cache_enregistrer(cle, resultat)
         return resultat
     except NavitiaAPIError:
         secours = obtenir_meme_expire(cle)
@@ -175,8 +163,6 @@ def obtenir_next_depart_et_perturbations(gare_depart_id: str, gare_arrivee_id: s
 
 @st.cache_data(ttl=300, show_spinner=False)
 def obtenir_donnees_stats():
-    """Pipeline stats mis en cache : évite de recalculer à chaque interaction
-    ailleurs dans l'app (Streamlit ré-exécute tous les onglets à chaque clic)."""
     df = charger_donnees()
     return {
         "stats_ligne": stats_ponctualite_par_ligne(df),
@@ -186,6 +172,45 @@ def obtenir_donnees_stats():
         "tendance_info": detecter_tendance(df),
         "temps_perdu": temps_perdu_cumule_minutes(df),
     }
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def obtenir_stats_rapides() -> dict:
+    """KPI en tête de dashboard. Lit Supabase en priorité (nécessaire pour
+    que le site hébergé sur Render affiche des données à jour), avec une
+    requête ciblée sur la ligne la plus récente (évite de charger toute la
+    table). Horodatages toujours convertis en heure de Paris."""
+    favoris = get_favoris()
+    nb_actifs = sum(1 for t_ in favoris if t_.actif)
+
+    derniere_collecte = "Aucune"
+    if db_configure():
+        dernier = charger_dernier_horodatage()
+        if dernier:
+            try:
+                dt = parser_horodatage_affichage(dernier)
+                derniere_collecte = dt.strftime("%d/%m %H:%M")
+            except (KeyError, ValueError):
+                pass
+    elif CSV_PATH.exists():
+        try:
+            with open(CSV_PATH, encoding="utf-8") as f:
+                lignes = list(csv.DictReader(f))
+            if lignes:
+                dt = parser_horodatage_affichage(lignes[-1]["horodatage_collecte"])
+                derniere_collecte = dt.strftime("%d/%m %H:%M")
+        except (KeyError, ValueError, IndexError):
+            pass
+
+    nb_alertes = 0
+    if ETAT_PATH.exists():
+        try:
+            with open(ETAT_PATH, encoding="utf-8") as f:
+                nb_alertes = len(json.load(f))
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    return {"trajets_actifs": nb_actifs, "derniere_collecte": derniere_collecte, "nb_alertes": nb_alertes}
 
 
 def obtenir_infos_favoris(favoris: list) -> list:
@@ -227,30 +252,6 @@ else:
 
 st.markdown(f'<p class="tk-caption">{t("caption", _langue)}</p>', unsafe_allow_html=True)
 
-if not FORCE_DEMO:
-    col_demo_spacer, col_demo_toggle = st.columns([4, 2])
-    with col_demo_toggle:
-        demo_actif = st.toggle(
-            "Mode démo (données fictives)",
-            value=st.session_state.demo_mode,
-            key="demo_toggle",
-            help="Utilise des données inventées, sans appeler l'API SNCF ni exposer de clé réelle.",
-        )
-        if demo_actif != st.session_state.demo_mode:
-            st.session_state.demo_mode = demo_actif
-            rechercher_gares_cache.clear()
-            obtenir_departs_et_perturbations_gare.clear()
-            obtenir_next_depart_et_perturbations.clear()
-            st.rerun()
-
-if st.session_state.demo_mode:
-    _texte_demo = (
-        "Site de démonstration — toutes les données affichées sont fictives, "
-        "aucune clé API réelle n'est utilisée ici."
-        if FORCE_DEMO else t("mode_demo_actif", _langue)
-    )
-    st.markdown(f'<div class="tk-banner-alert">{_texte_demo}</div>', unsafe_allow_html=True)
-
 if st.session_state.mode_degrade:
     _dt_secours = datetime.fromtimestamp(st.session_state.mode_degrade)
     st.markdown(
@@ -258,49 +259,6 @@ if st.session_state.mode_degrade:
         f'Dernières données connues du {_dt_secours:%d/%m à %H:%M}.</div>',
         unsafe_allow_html=True,
     )
-
-
-def obtenir_stats_rapides() -> dict:
-    """
-    Retourne les KPI en tête de dashboard. Lit Supabase en priorité si
-    configuré (nécessaire pour que le site hébergé sur Render affiche des
-    données à jour) ; les horodatages sont convertis en heure de Paris,
-    quelle que soit leur origine (corrige le décalage -2h observé quand le
-    serveur tourne en UTC).
-    """
-    favoris = get_favoris()
-    nb_actifs = sum(1 for t_ in favoris if t_.actif)
-
-    derniere_collecte = "Aucune"
-    if db_configure():
-        lignes = db_charger_departs()
-        if lignes:
-            try:
-                dernier = max(lignes, key=lambda l: l["horodatage_collecte"])
-                dt = parser_horodatage_affichage(dernier["horodatage_collecte"])
-                derniere_collecte = dt.strftime("%d/%m %H:%M")
-            except (KeyError, ValueError):
-                pass
-    elif CSV_PATH.exists():
-        try:
-            with open(CSV_PATH, encoding="utf-8") as f:
-                lignes = list(csv.DictReader(f))
-            if lignes:
-                dt = parser_horodatage_affichage(lignes[-1]["horodatage_collecte"])
-                derniere_collecte = dt.strftime("%d/%m %H:%M")
-        except (KeyError, ValueError, IndexError):
-            pass
-
-    nb_alertes = 0
-    if ETAT_PATH.exists():
-        try:
-            with open(ETAT_PATH, encoding="utf-8") as f:
-                nb_alertes = len(json.load(f))
-        except (json.JSONDecodeError, OSError):
-            pass
-
-    return {"trajets_actifs": nb_actifs, "derniere_collecte": derniere_collecte, "nb_alertes": nb_alertes}
-
 
 _stats_rapides = obtenir_stats_rapides()
 st.markdown(
@@ -336,10 +294,7 @@ st.markdown(TAB_SLIDER_JS, unsafe_allow_html=True)
 with tab_recherche:
     with st.container(border=True, key="card_recherche"):
         st.markdown(titre_section("search", t("prochains_departs", _langue)), unsafe_allow_html=True)
-        st.markdown(
-            '<p class="tk-hint">Tape le nom d\'une gare (3 caractères minimum) pour voir ses prochains départs.</p>',
-            unsafe_allow_html=True,
-        )
+        st.markdown(f'<p class="tk-hint">{t("hint_recherche", _langue)}</p>', unsafe_allow_html=True)
 
         if "historique_recherches" not in st.session_state:
             st.session_state.historique_recherches = []
@@ -361,7 +316,7 @@ with tab_recherche:
                 st.rerun()
 
         if st.session_state.historique_recherches:
-            st.markdown('<p class="tk-history-label">Recherches récentes</p>', unsafe_allow_html=True)
+            st.markdown(f'<p class="tk-history-label">{t("recherches_recentes", _langue)}</p>', unsafe_allow_html=True)
             cols_historique = st.columns(len(st.session_state.historique_recherches))
             for col, item in zip(cols_historique, st.session_state.historique_recherches):
                 with col:
@@ -381,7 +336,7 @@ with tab_recherche:
                     stations = []
 
                 if not stations:
-                    st.warning("Aucune gare trouvée.")
+                    st.warning(t("aucune_gare_trouvee", _langue))
                     station = None
                 else:
                     clique = bloc_suggestions(stations, cle="recherche")
@@ -393,20 +348,21 @@ with tab_recherche:
         else:
             station = None
             if gare_input:
-                st.caption("Continue à taper (3 caractères minimum)...")
+                st.caption(t("continue_a_taper", _langue))
 
         if station:
             try:
                 departs, disruptions = obtenir_departs_et_perturbations_gare(station["id"])
 
                 if not departs:
-                    st.info("Aucun départ dans l'immédiat.")
+                    st.info(t("aucun_depart", _langue))
                 else:
                     tableau_departs = pd.DataFrame([
                         {
-                            "Ligne": d["ligne"], "Direction": d["direction"],
-                            "Départ": formater_heure(d["heure_prevue"]),
-                            "Statut": "Temps réel" if d["statut"] == "realtime" else "Théorique",
+                            t("colonne_ligne", _langue): d["ligne"],
+                            t("colonne_direction", _langue): d["direction"],
+                            t("colonne_depart", _langue): formater_heure(d["heure_prevue"]),
+                            t("colonne_statut", _langue): t("temps_reel", _langue) if d["statut"] == "realtime" else t("theorique", _langue),
                         }
                         for d in departs
                     ])
@@ -432,7 +388,7 @@ with tab_recherche:
 
                 if "journal_ids_logues" not in st.session_state:
                     st.session_state.journal_ids_logues = set()
-                if not st.session_state.demo_mode and station["id"] not in st.session_state.journal_ids_logues:
+                if not LECTURE_SEULE and station["id"] not in st.session_state.journal_ids_logues:
                     ajouter_entree("recherche", station["name"])
                     st.session_state.journal_ids_logues.add(station["id"])
 
@@ -444,12 +400,19 @@ with tab_favoris:
     with st.container(border=True, key="card_favoris_liste"):
         st.markdown(titre_section("star", t("trajets_favoris", _langue)), unsafe_allow_html=True)
 
+        if LECTURE_SEULE:
+            st.caption(t("favoris_lecture_seule", _langue))
+
         if not _infos_favoris:
-            st.info("Aucun trajet favori configuré pour l'instant. Ajoutes-en un ci-dessous.")
+            st.info(t("aucun_favori", _langue))
         else:
             for i, info in enumerate(_infos_favoris):
                 trajet = info["trajet"]
-                col_dot, col_info, col_toggle, col_delete = st.columns([0.35, 4.15, 1.25, 1.25], gap="small")
+
+                if LECTURE_SEULE:
+                    col_dot, col_info = st.columns([0.35, 5.65], gap="small")
+                else:
+                    col_dot, col_info, col_toggle, col_delete = st.columns([0.35, 4.15, 1.25, 1.25], gap="small")
 
                 with col_dot:
                     dot_class = "tk-dot-ok" if trajet.actif else "tk-dot-alert"
@@ -467,135 +430,133 @@ with tab_favoris:
                             unsafe_allow_html=True,
                         )
 
-                with col_toggle:
-                    st.markdown('<div class="tk-compact-btn">', unsafe_allow_html=True)
-                    label_toggle = "Désactiver" if trajet.actif else "Activer"
-                    if st.button(label_toggle, key=f"toggle_{i}", use_container_width=True):
-                        favoris_maj = get_favoris()
-                        favoris_maj[i].actif = not favoris_maj[i].actif
-                        save_favoris(favoris_maj)
-                        st.rerun()
-                    st.markdown("</div>", unsafe_allow_html=True)
-
-                with col_delete:
-                    st.markdown('<div class="tk-compact-btn">', unsafe_allow_html=True)
-                    if st.button("Supprimer", key=f"delete_{i}", use_container_width=True):
-                        st.session_state[f"confirm_delete_{i}"] = True
-                        st.rerun()
-                    st.markdown("</div>", unsafe_allow_html=True)
-
-                if st.session_state.get(f"confirm_delete_{i}"):
-                    st.markdown(
-                        f'<p class="tk-confirm-text">Supprimer « {trajet.nom} » ? Cette action est irréversible.</p>',
-                        unsafe_allow_html=True,
-                    )
-                    col_confirm, col_annuler, _ = st.columns([1, 1, 3])
-                    with col_confirm:
-                        if st.button("Confirmer", key=f"confirm_yes_{i}", use_container_width=True):
+                if not LECTURE_SEULE:
+                    with col_toggle:
+                        st.markdown('<div class="tk-compact-btn">', unsafe_allow_html=True)
+                        label_toggle = t("desactiver", _langue) if trajet.actif else t("activer", _langue)
+                        if st.button(label_toggle, key=f"toggle_{i}", use_container_width=True):
                             favoris_maj = get_favoris()
-                            favoris_maj.pop(i)
+                            favoris_maj[i].actif = not favoris_maj[i].actif
                             save_favoris(favoris_maj)
-                            st.session_state[f"confirm_delete_{i}"] = False
                             st.rerun()
-                    with col_annuler:
-                        if st.button("Annuler", key=f"confirm_no_{i}", use_container_width=True):
-                            st.session_state[f"confirm_delete_{i}"] = False
-                            st.rerun()
+                        st.markdown("</div>", unsafe_allow_html=True)
 
-                deja_un_retour = any(
-                    f.gare_depart_id == trajet.gare_arrivee_id and f.gare_arrivee_id == trajet.gare_depart_id
-                    for f in get_favoris()
-                )
-                if not deja_un_retour:
-                    if st.button("Créer le trajet retour", key=f"retour_{i}", help="Ajoute le trajet inverse"):
-                        favoris_maj = get_favoris()
-                        favoris_maj.append(Trajet(
-                            nom=f"{trajet.nom} (retour)",
-                            gare_depart_id=trajet.gare_arrivee_id, gare_depart_nom=trajet.gare_arrivee_nom,
-                            gare_arrivee_id=trajet.gare_depart_id, gare_arrivee_nom=trajet.gare_depart_nom,
-                        ))
-                        save_favoris(favoris_maj)
-                        st.success("Trajet retour ajouté.")
-                        st.rerun()
+                    with col_delete:
+                        st.markdown('<div class="tk-compact-btn">', unsafe_allow_html=True)
+                        if st.button(t("supprimer", _langue), key=f"delete_{i}", use_container_width=True):
+                            st.session_state[f"confirm_delete_{i}"] = True
+                            st.rerun()
+                        st.markdown("</div>", unsafe_allow_html=True)
+
+                    if st.session_state.get(f"confirm_delete_{i}"):
+                        st.markdown(
+                            f'<p class="tk-confirm-text">{formatter("confirmer_suppression", _langue, nom=trajet.nom)}</p>',
+                            unsafe_allow_html=True,
+                        )
+                        col_confirm, col_annuler, _sp = st.columns([1, 1, 3])
+                        with col_confirm:
+                            if st.button(t("confirmer", _langue), key=f"confirm_yes_{i}", use_container_width=True):
+                                favoris_maj = get_favoris()
+                                favoris_maj.pop(i)
+                                save_favoris(favoris_maj)
+                                st.session_state[f"confirm_delete_{i}"] = False
+                                st.rerun()
+                        with col_annuler:
+                            if st.button(t("annuler", _langue), key=f"confirm_no_{i}", use_container_width=True):
+                                st.session_state[f"confirm_delete_{i}"] = False
+                                st.rerun()
+
+                    deja_un_retour = any(
+                        f.gare_depart_id == trajet.gare_arrivee_id and f.gare_arrivee_id == trajet.gare_depart_id
+                        for f in get_favoris()
+                    )
+                    if not deja_un_retour:
+                        if st.button(t("creer_trajet_retour", _langue), key=f"retour_{i}"):
+                            favoris_maj = get_favoris()
+                            favoris_maj.append(Trajet(
+                                nom=f"{trajet.nom} (retour)",
+                                gare_depart_id=trajet.gare_arrivee_id, gare_depart_nom=trajet.gare_arrivee_nom,
+                                gare_arrivee_id=trajet.gare_depart_id, gare_arrivee_nom=trajet.gare_depart_nom,
+                            ))
+                            save_favoris(favoris_maj)
+                            st.success(t("trajet_retour_ajoute", _langue))
+                            st.rerun()
 
                 if i < len(_infos_favoris) - 1:
                     st.markdown('<div class="tk-divider"></div>', unsafe_allow_html=True)
 
-    with st.container(border=True, key="card_favoris_ajout"):
-        st.markdown(titre_section("plus", t("ajouter_trajet", _langue)), unsafe_allow_html=True)
-        st.markdown(
-            '<p class="tk-hint">Cherche une gare de départ et d\'arrivée, clique sur une suggestion, puis valide.</p>',
-            unsafe_allow_html=True,
-        )
+    if not LECTURE_SEULE:
+        with st.container(border=True, key="card_favoris_ajout"):
+            st.markdown(titre_section("plus", t("ajouter_trajet", _langue)), unsafe_allow_html=True)
+            st.markdown(f'<p class="tk-hint">{t("hint_ajout_favori", _langue)}</p>', unsafe_allow_html=True)
 
-        nom_trajet = st.text_input("Nom du trajet", placeholder="ex: Trajet du matin", key="nom_trajet_input")
+            nom_trajet = st.text_input(t("nom_du_trajet", _langue), placeholder=t("placeholder_nom_trajet", _langue), key="nom_trajet_input")
 
-        for cle_gare, label_gare, placeholder_gare in [
-            ("depart", "Gare de départ", "ex: Paris"),
-            ("arrivee", "Gare d'arrivée", "ex: Marseille"),
-        ]:
-            st.write(f"**{label_gare}**")
-            requete = st.text_input(
-                "Rechercher (3 car. min.)", placeholder=placeholder_gare, key=f"requete_{cle_gare}",
-                label_visibility="collapsed",
-            )
-            session_key = f"station_{cle_gare}"
-            if session_key not in st.session_state:
-                st.session_state[session_key] = None
+            for cle_gare, label_key, placeholder_ex in [
+                ("depart", "gare_depart", "Paris"),
+                ("arrivee", "gare_arrivee", "Marseille"),
+            ]:
+                st.write(f"**{t(label_key, _langue)}**")
+                requete = st.text_input(
+                    t("rechercher_min", _langue), placeholder=f"ex: {placeholder_ex}", key=f"requete_{cle_gare}",
+                    label_visibility="collapsed",
+                )
+                session_key = f"station_{cle_gare}"
+                if session_key not in st.session_state:
+                    st.session_state[session_key] = None
 
-            station_gare = st.session_state[session_key]
+                station_gare = st.session_state[session_key]
 
-            if requete and len(requete.strip()) >= 3:
-                if not station_gare or station_gare["name"] != requete:
-                    try:
-                        resultats = rechercher_gares_cache(requete)
-                    except NavitiaAPIError as e:
-                        st.error(f"Erreur API : {e}")
-                        resultats = []
+                if requete and len(requete.strip()) >= 3:
+                    if not station_gare or station_gare["name"] != requete:
+                        try:
+                            resultats = rechercher_gares_cache(requete)
+                        except NavitiaAPIError as e:
+                            st.error(f"Erreur API : {e}")
+                            resultats = []
 
-                    if not resultats:
-                        st.warning("Aucune gare trouvée.")
-                    else:
-                        clique = bloc_suggestions(resultats, cle=cle_gare)
-                        if clique:
-                            st.session_state[session_key] = clique
-                            st.rerun()
-            else:
-                st.session_state[session_key] = None
+                        if not resultats:
+                            st.warning(t("aucune_gare_trouvee", _langue))
+                        else:
+                            clique = bloc_suggestions(resultats, cle=cle_gare)
+                            if clique:
+                                st.session_state[session_key] = clique
+                                st.rerun()
+                else:
+                    st.session_state[session_key] = None
 
-        gare_depart_choisie = st.session_state.get("station_depart")
-        gare_arrivee_choisie = st.session_state.get("station_arrivee")
+            gare_depart_choisie = st.session_state.get("station_depart")
+            gare_arrivee_choisie = st.session_state.get("station_arrivee")
 
-        if gare_depart_choisie and gare_arrivee_choisie:
-            if st.button("Inverser départ / arrivée", key="inverser_depart_arrivee"):
-                st.session_state["station_depart"] = gare_arrivee_choisie
-                st.session_state["station_arrivee"] = gare_depart_choisie
-                st.rerun()
+            if gare_depart_choisie and gare_arrivee_choisie:
+                if st.button(t("inverser_depart_arrivee", _langue), key="inverser_depart_arrivee"):
+                    st.session_state["station_depart"] = gare_arrivee_choisie
+                    st.session_state["station_arrivee"] = gare_depart_choisie
+                    st.rerun()
 
-        if gare_depart_choisie:
-            st.caption(f"Départ sélectionné : {gare_depart_choisie['name']}")
-        if gare_arrivee_choisie:
-            st.caption(f"Arrivée sélectionnée : {gare_arrivee_choisie['name']}")
+            if gare_depart_choisie:
+                st.caption(formatter("depart_selectionne", _langue, nom=gare_depart_choisie['name']))
+            if gare_arrivee_choisie:
+                st.caption(formatter("arrivee_selectionnee", _langue, nom=gare_arrivee_choisie['name']))
 
-        if st.button("Ajouter ce trajet", type="primary"):
-            if not nom_trajet:
-                st.warning("Donne un nom au trajet.")
-            elif not gare_depart_choisie or not gare_arrivee_choisie:
-                st.warning("Cherche et sélectionne une gare de départ ET d'arrivée.")
-            else:
-                favoris_maj = get_favoris()
-                favoris_maj.append(Trajet(
-                    nom=nom_trajet,
-                    gare_depart_id=gare_depart_choisie["id"], gare_depart_nom=gare_depart_choisie["name"],
-                    gare_arrivee_id=gare_arrivee_choisie["id"], gare_arrivee_nom=gare_arrivee_choisie["name"],
-                ))
-                save_favoris(favoris_maj)
-                st.session_state["station_depart"] = None
-                st.session_state["station_arrivee"] = None
-                if not st.session_state.demo_mode:
+            if st.button(t("ajouter_ce_trajet", _langue), type="primary"):
+                if not nom_trajet:
+                    st.warning(t("avertissement_nom_trajet", _langue))
+                elif not gare_depart_choisie or not gare_arrivee_choisie:
+                    st.warning(t("avertissement_gares_manquantes", _langue))
+                else:
+                    favoris_maj = get_favoris()
+                    favoris_maj.append(Trajet(
+                        nom=nom_trajet,
+                        gare_depart_id=gare_depart_choisie["id"], gare_depart_nom=gare_depart_choisie["name"],
+                        gare_arrivee_id=gare_arrivee_choisie["id"], gare_arrivee_nom=gare_arrivee_choisie["name"],
+                    ))
+                    save_favoris(favoris_maj)
+                    st.session_state["station_depart"] = None
+                    st.session_state["station_arrivee"] = None
                     ajouter_entree("ajout_favori", nom_trajet)
-                st.success(f"Trajet « {nom_trajet} » ajouté !")
-                st.rerun()
+                    st.success(formatter("trajet_ajoute", _langue, nom=nom_trajet))
+                    st.rerun()
 
 with tab_stats:
     with st.container(border=True, key="card_stats"):
@@ -604,14 +565,11 @@ with tab_stats:
         try:
             donnees_stats = obtenir_donnees_stats()
         except FileNotFoundError:
-            st.info(
-                "Aucune donnée historisée pour l'instant. Lance "
-                "`python main.py surveiller` un moment pour commencer à collecter des données."
-            )
+            st.info(t("stats_hint_vide", _langue))
         else:
             stats = donnees_stats["stats_ligne"]
             if stats.empty:
-                st.info("Pas encore assez de données exploitables pour calculer des stats.")
+                st.info(t("stats_vide", _langue))
             else:
                 import matplotlib.pyplot as plt
                 from matplotlib.backends.backend_pdf import PdfPages
@@ -629,22 +587,22 @@ with tab_stats:
                 with col_temps_perdu:
                     heures_perdues = temps_perdu / 60
                     st.markdown(
-                        f'<div class="tk-chip"><span class="tk-chip-label">Temps de retard cumulé</span>'
+                        f'<div class="tk-chip"><span class="tk-chip-label">{t("temps_retard_cumule", _langue)}</span>'
                         f'<span class="tk-chip-value">{heures_perdues:.1f} h</span></div>',
                         unsafe_allow_html=True,
                     )
                 with col_tendance:
                     if tendance_info:
-                        libelles = {"amelioration": "En amélioration", "degradation": "En dégradation", "stable": "Stable"}
+                        libelles = {"amelioration": t("en_amelioration", _langue), "degradation": t("en_degradation", _langue), "stable": t("stable", _langue)}
                         st.markdown(
-                            f'<div class="tk-chip"><span class="tk-chip-label">Tendance récente</span>'
+                            f'<div class="tk-chip"><span class="tk-chip-label">{t("tendance_recente", _langue)}</span>'
                             f'<span class="tk-chip-value">{libelles[tendance_info["direction"]]}</span></div>',
                             unsafe_allow_html=True,
                         )
                     else:
                         st.markdown(
-                            '<div class="tk-chip"><span class="tk-chip-label">Tendance récente</span>'
-                            '<span class="tk-chip-value">Pas assez de données</span></div>',
+                            f'<div class="tk-chip"><span class="tk-chip-label">{t("tendance_recente", _langue)}</span>'
+                            f'<span class="tk-chip-value">{t("pas_assez_de_donnees", _langue)}</span></div>',
                             unsafe_allow_html=True,
                         )
                 st.markdown("<br>", unsafe_allow_html=True)
@@ -652,45 +610,42 @@ with tab_stats:
                 st.dataframe(
                     stats_affichage, use_container_width=True,
                     column_config={
-                        "Ponctualité": st.column_config.TextColumn(help="Part des trains partis avec moins de 5 min de retard"),
-                        "Retard moyen": st.column_config.TextColumn(help="Retard moyen constaté sur la ligne"),
-                        "Régularité": st.column_config.TextColumn(help="Écart-type du retard : plus c'est bas, plus la ligne est régulière"),
-                        "Trains observés": st.column_config.NumberColumn(help="Nombre de départs historisés pour cette ligne"),
+                        "Ponctualité": st.column_config.TextColumn(help=t("aide_ponctualite", _langue)),
+                        "Retard moyen": st.column_config.TextColumn(help=t("aide_retard_moyen", _langue)),
+                        "Régularité": st.column_config.TextColumn(help=t("aide_regularite", _langue)),
+                        "Trains observés": st.column_config.NumberColumn(help=t("aide_trains_observes", _langue)),
                     },
                 )
-                st.markdown(
-                    '<p class="tk-legend">Un train est considéré « à l\'heure » s\'il part avec moins de 5 minutes de retard.</p>',
-                    unsafe_allow_html=True,
-                )
+                st.markdown(f'<p class="tk-legend">{t("legende_ponctualite", _langue)}</p>', unsafe_allow_html=True)
 
-                st.subheader("Retard moyen par ligne")
+                st.subheader(t("retard_moyen_par_ligne", _langue))
                 fig_retard = graphe_retard_par_ligne(stats)
                 st.pyplot(fig_retard)
 
-                st.subheader("Évolution du retard moyen dans le temps")
+                st.subheader(t("evolution_retard", _langue))
                 fig_tendance = graphe_tendance_temporelle(donnees_stats["tendance_temporelle"])
                 st.pyplot(fig_tendance)
 
                 st.divider()
-                st.subheader("Fiabilité par gare")
+                st.subheader(t("fiabilite_par_gare", _langue))
                 st.dataframe(formater_stats_affichage(donnees_stats["stats_gare"]), use_container_width=True)
 
-                st.subheader("Répartition des retards (jour x heure)")
+                st.subheader(t("repartition_retards", _langue))
                 pivot = donnees_stats["pivot_heatmap"]
                 if pivot.dropna(how="all").empty:
-                    st.caption("Pas encore assez de données pour cette vue.")
+                    st.caption(t("pas_assez_pour_cette_vue", _langue))
                 else:
                     fig_heatmap = graphe_heatmap_retards(pivot)
                     st.pyplot(fig_heatmap)
 
                 st.divider()
-                st.markdown(titre_section("download", "Exporter"), unsafe_allow_html=True)
+                st.markdown(titre_section("download", t("exporter", _langue)), unsafe_allow_html=True)
                 col_csv, col_pdf = st.columns(2)
 
                 with col_csv:
                     csv_bytes = stats_affichage.to_csv().encode("utf-8")
                     st.download_button(
-                        "Export CSV", data=csv_bytes, file_name="traincker_stats.csv",
+                        t("export_csv", _langue), data=csv_bytes, file_name="traincker_stats.csv",
                         mime="text/csv", use_container_width=True,
                     )
 
@@ -710,7 +665,7 @@ with tab_stats:
                     buffer_pdf.seek(0)
 
                     st.download_button(
-                        "Export PDF", data=buffer_pdf, file_name="traincker_stats.pdf",
+                        t("export_pdf", _langue), data=buffer_pdf, file_name="traincker_stats.pdf",
                         mime="application/pdf", use_container_width=True,
                     )
 
@@ -732,11 +687,11 @@ with tab_apropos:
 - `dashboard.py` — interface Streamlit (recherche, favoris, statistiques)
 - `db.py` — persistance partagée Supabase entre la surveillance et le dashboard hébergé
 
-**Points notables** : mode démo avec données fictives, mode dégradé en cas de panne API,
-suite de tests automatisés (pytest), déploiement continu (GitHub Actions + Render).
+**Points notables** : mode dégradé en cas de panne API, suite de tests automatisés (pytest),
+déploiement continu (GitHub Actions + Render), traduit en 5 langues.
             """
         )
-        st.link_button("Voir le code sur GitHub", "https://github.com/paulcrg/traincker", use_container_width=True)
+        st.link_button(t("voir_code_github", _langue), "https://github.com/paulcrg/traincker", use_container_width=True)
 
     with st.container(border=True, key="card_changelog"):
         st.markdown(titre_section("clock", t("historique_evolutions", _langue)), unsafe_allow_html=True)
@@ -752,19 +707,19 @@ suite de tests automatisés (pytest), déploiement continu (GitHub Actions + Ren
         with col_export:
             favoris_export = get_favoris()
             export_data = {"trajets": [
-                {"nom": t_.nom, "gare_depart_id": t_.gare_depart_id, "gare_depart_nom": t_.gare_depart_nom,
-                 "gare_arrivee_id": t_.gare_arrivee_id, "gare_arrivee_nom": t_.gare_arrivee_nom, "actif": t_.actif}
-                for t_ in favoris_export
+                {"nom": tr.nom, "gare_depart_id": tr.gare_depart_id, "gare_depart_nom": tr.gare_depart_nom,
+                 "gare_arrivee_id": tr.gare_arrivee_id, "gare_arrivee_nom": tr.gare_arrivee_nom, "actif": tr.actif}
+                for tr in favoris_export
             ]}
             st.download_button(
                 t("exporter_trajets", _langue), data=json.dumps(export_data, ensure_ascii=False, indent=2),
                 file_name="traincker_favoris.json", mime="application/json",
-                use_container_width=True, disabled=st.session_state.demo_mode,
+                use_container_width=True, disabled=LECTURE_SEULE,
             )
 
         with col_import:
             fichier_import = st.file_uploader(
-                "Restaurer", type="json", label_visibility="collapsed", disabled=st.session_state.demo_mode,
+                t("restaurer", _langue), type="json", label_visibility="collapsed", disabled=LECTURE_SEULE,
             )
             if fichier_import is not None:
                 try:
@@ -772,13 +727,13 @@ suite de tests automatisés (pytest), déploiement continu (GitHub Actions + Ren
                     trajets_importes = [Trajet(**tr) for tr in data_importee.get("trajets", [])]
                     if st.button(t("confirmer_restauration", _langue), type="primary"):
                         save_favoris(trajets_importes)
-                        st.success(f"{len(trajets_importes)} trajet(s) restauré(s).")
+                        st.success(formatter("trajets_restaures", _langue, n=len(trajets_importes)))
                         st.rerun()
                 except (json.JSONDecodeError, TypeError, KeyError) as e:
-                    st.error(f"Fichier invalide : {e}")
+                    st.error(formatter("fichier_invalide", _langue, erreur=e))
 
-        if st.session_state.demo_mode:
-            st.caption("Export/import désactivés en mode démo.")
+        if LECTURE_SEULE:
+            st.caption(t("export_import_desactives", _langue))
 
     with st.container(border=True, key="card_alertes"):
         st.markdown(titre_section("alert", t("parametres_alerte", _langue)), unsafe_allow_html=True)
@@ -786,20 +741,20 @@ suite de tests automatisés (pytest), déploiement continu (GitHub Actions + Ren
 
         col_silence_debut, col_silence_fin = st.columns(2)
         with col_silence_debut:
-            heure_debut = st.text_input(t("silence_a_partir_de", _langue), value=_parametres_globaux["silence_debut"], key="param_silence_debut")
+            heure_debut = st.text_input(t("silence_a_partir_de", _langue), value=_parametres_globaux["silence_debut"], key="param_silence_debut", disabled=LECTURE_SEULE)
         with col_silence_fin:
-            heure_fin = st.text_input(t("silence_jusqua", _langue), value=_parametres_globaux["silence_fin"], key="param_silence_fin")
+            heure_fin = st.text_input(t("silence_jusqua", _langue), value=_parametres_globaux["silence_fin"], key="param_silence_fin", disabled=LECTURE_SEULE)
         st.caption(t("note_perturbations_critiques", _langue))
 
-        canal_discord = st.checkbox(t("alertes_discord_label", _langue), value=_parametres_globaux["canal_discord"], key="param_discord")
-        canal_email = st.checkbox(t("alertes_email_label", _langue), value=_parametres_globaux["canal_email"], key="param_email")
+        canal_discord = st.checkbox(t("alertes_discord_label", _langue), value=_parametres_globaux["canal_discord"], key="param_discord", disabled=LECTURE_SEULE)
+        canal_email = st.checkbox(t("alertes_email_label", _langue), value=_parametres_globaux["canal_email"], key="param_email", disabled=LECTURE_SEULE)
         email_destinataire = st.text_input(
             t("adresse_email_label", _langue), value=_parametres_globaux["email_destinataire"],
-            key="param_email_dest", disabled=not canal_email, placeholder="toi@exemple.com",
+            key="param_email_dest", disabled=(not canal_email) or LECTURE_SEULE, placeholder="toi@exemple.com",
         )
-        alertes_meteo = st.checkbox(t("alertes_meteo_label", _langue), value=_parametres_globaux["alertes_meteo"], key="param_meteo")
+        alertes_meteo = st.checkbox(t("alertes_meteo_label", _langue), value=_parametres_globaux["alertes_meteo"], key="param_meteo", disabled=LECTURE_SEULE)
 
-        if st.button(t("enregistrer_parametres", _langue), type="primary"):
+        if not LECTURE_SEULE and st.button(t("enregistrer_parametres", _langue), type="primary"):
             maj = charger_parametres()
             maj.update({
                 "silence_debut": heure_debut, "silence_fin": heure_fin,
@@ -811,15 +766,12 @@ suite de tests automatisés (pytest), déploiement continu (GitHub Actions + Ren
 
         st.divider()
         st.caption(t("note_rapport_hebdo", _langue))
-        if st.button(t("envoyer_rapport", _langue)):
-            if not st.session_state.demo_mode:
-                envoye = envoyer_rapport_hebdomadaire()
-                if envoye:
-                    st.success("Rapport envoyé.")
-                else:
-                    st.warning("Active les alertes email et renseigne une adresse d'abord.")
+        if not LECTURE_SEULE and st.button(t("envoyer_rapport", _langue)):
+            envoye = envoyer_rapport_hebdomadaire()
+            if envoye:
+                st.success("Rapport envoyé.")
             else:
-                st.info("Indisponible en mode démo.")
+                st.warning("Active les alertes email et renseigne une adresse d'abord.")
 
     with st.container(border=True, key="card_accessibilite"):
         st.markdown(titre_section("eye", t("accessibilite", _langue)), unsafe_allow_html=True)
@@ -860,21 +812,18 @@ suite de tests automatisés (pytest), déploiement continu (GitHub Actions + Ren
         st.markdown(titre_section("list", t("mon_historique", _langue)), unsafe_allow_html=True)
         st.markdown(f'<p class="tk-hint">{t("historique_hint", _langue)}</p>', unsafe_allow_html=True)
 
-        if st.session_state.demo_mode:
-            st.caption("Historique désactivé en mode démo.")
+        entrees = lire_journal(limite=20)
+        if not entrees:
+            st.info(t("historique_vide", _langue))
         else:
-            entrees = lire_journal(limite=20)
-            if not entrees:
-                st.info(t("historique_vide", _langue))
-            else:
-                LIBELLES_JOURNAL = {"recherche": "Recherche", "ajout_favori": "Trajet ajouté"}
-                for entree in entrees:
-                    dt = datetime.fromisoformat(entree["horodatage"])
-                    label = LIBELLES_JOURNAL.get(entree["type"], entree["type"])
-                    st.markdown(f'<div class="tk-log-line">{dt:%d/%m %H:%M} — {label} : {entree["detail"]}</div>', unsafe_allow_html=True)
-                if st.button(t("vider_historique", _langue), key="vider_historique"):
-                    vider_journal()
-                    st.rerun()
+            LIBELLES_JOURNAL = {"recherche": t("journal_type_recherche", _langue), "ajout_favori": t("journal_type_ajout_favori", _langue)}
+            for entree in entrees:
+                dt = datetime.fromisoformat(entree["horodatage"])
+                label = LIBELLES_JOURNAL.get(entree["type"], entree["type"])
+                st.markdown(f'<div class="tk-log-line">{dt:%d/%m %H:%M} — {label} : {entree["detail"]}</div>', unsafe_allow_html=True)
+            if st.button(t("vider_historique", _langue), key="vider_historique"):
+                vider_journal()
+                st.rerun()
 
     with st.container(border=True, key="card_logs"):
         st.markdown(titre_section("shield", t("journal_technique", _langue)), unsafe_allow_html=True)
@@ -903,7 +852,7 @@ st.markdown(
     '<div class="tk-footer">'
     '<span>© 2026 Traincker</span>'
     '<span class="tk-footer-sep">•</span>'
-    '<span>Paul Crémoux</span>'
+    '<span>Paul Crémoux Guiblain</span>'
     '<span class="tk-footer-sep">•</span>'
     '<span class="tk-footer-link">paulcrg</span>'
     "</div>",
