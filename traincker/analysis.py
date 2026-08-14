@@ -12,6 +12,7 @@ import pandas as pd
 
 from traincker.collector import CSV_PATH as DATA_PATH
 from traincker.db import charger_departs, est_configure
+from traincker.utils import humaniser_ligne
 
 FORMAT_DATE_NAVITIA = "%Y%m%dT%H%M%S"
 JOURS_FR = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"]
@@ -37,6 +38,13 @@ def charger_donnees(path: Path = DATA_PATH) -> pd.DataFrame:
     for col in ["heure_theorique", "heure_prevue"]:
         df[col] = pd.to_datetime(df[col], format=FORMAT_DATE_NAVITIA, errors="coerce")
     df = df.dropna(subset=["heure_theorique", "heure_prevue"])
+
+    # Ré-humanise les noms de ligne même sur d'anciennes données déjà
+    # historisées avant l'ajout de cette transformation (ex: "P20" restait
+    # figé en base tel quel) : appliqué à l'affichage, pas besoin de
+    # migrer les données existantes.
+    df["ligne"] = df["ligne"].apply(humaniser_ligne)
+
     return df
 
 
