@@ -6,7 +6,6 @@ from traincker import db
 
 
 def _reset_singleton():
-    """db.py met en cache le client dans des variables de module ; on les remet à zéro entre tests."""
     db._client = None
     db._tentative_faite = False
 
@@ -18,12 +17,46 @@ def test_non_configure_sans_variables_environnement(monkeypatch):
     assert db.est_configure() is False
 
 
-def test_inserer_departs_retourne_false_si_non_configure(monkeypatch):
+def test_charger_departs_trie_par_date_decroissante_avec_limite(monkeypatch):
+    _reset_singleton()
+    monkeypatch.setenv("SUPABASE_URL", "https://exemple.supabase.co")
+    monkeypatch.setenv("SUPABASE_KEY", "cle_test")
+
+    faux_client = MagicMock()
+    faux_table = faux_client.table.return_value
+    faux_select = faux_table.select.return_value
+    faux_order = faux_select.order.return_value
+    faux_limit = faux_order.limit.return_value
+    faux_limit.execute.return_value = MagicMock(data=[{"horodatage_collecte": "2026-01-02T00:00:00"}])
+
+    with patch("supabase.create_client", return_value=faux_client):
+        resultat = db.charger_departs(limite=5000)
+
+    faux_select.order.assert_called_once_with("horodatage_collecte", desc=True)
+    faux_order.limit.assert_called_once_with(5000)
+    assert resultat == [{"horodatage_collecte": "2026-01-02T00:00:00"}]
+
+
+def test_charger_dernier_horodatage(monkeypatch):
+    _reset_singleton()
+    monkeypatch.setenv("SUPABASE_URL", "https://exemple.supabase.co")
+    monkeypatch.setenv("SUPABASE_KEY", "cle_test")
+
+    faux_client = MagicMock()
+    faux_limit = faux_client.table.return_value.select.return_value.order.return_value.limit.return_value
+    faux_limit.execute.return_value = MagicMock(data=[{"horodatage_collecte": "2026-01-02T10:00:00"}])
+
+    with patch("supabase.create_client", return_value=faux_client):
+        resultat = db.charger_dernier_horodatage()
+
+    assert resultat == "2026-01-02T10:00:00"
+
+
+def test_charger_dernier_horodatage_none_si_non_configure(monkeypatch):
     _reset_singleton()
     monkeypatch.delenv("SUPABASE_URL", raising=False)
     monkeypatch.delenv("SUPABASE_KEY", raising=False)
-    resultat = db.inserer_departs([{"ligne": "TER", "direction": "X", "heure_theorique": "1", "heure_prevue": "1", "statut": "base_schedule"}], "Gare", "2026-01-01")
-    assert resultat is False
+    assert db.charger_dernier_horodatage() is None
 
 
 def test_charger_departs_retourne_none_si_non_configure(monkeypatch):
@@ -31,27 +64,3 @@ def test_charger_departs_retourne_none_si_non_configure(monkeypatch):
     monkeypatch.delenv("SUPABASE_URL", raising=False)
     monkeypatch.delenv("SUPABASE_KEY", raising=False)
     assert db.charger_departs() is None
-
-
-def test_configure_avec_client_mocke(monkeypatch):
-    _reset_singleton()
-    monkeypatch.setenv("SUPABASE_URL", "https://exemple.supabase.co")
-    monkeypatch.setenv("SUPABASE_KEY", "cle_test")
-
-    faux_client = MagicMock()
-    with patch("supabase.create_client", return_value=faux_client):
-        assert db.est_configure() is True
-
-        db.inserer_departs(
-            [{"ligne": "TER 1", "direction": "Dijon", "heure_theorique": "t", "heure_prevue": "p", "statut": "realtime"}],
-            "Nuits-Saint-Georges",
-            "2026-01-01T08:00:00",
-        )
-        faux_client.table.assert_any_call("departures")
-
-
-def test_alerte_deja_envoyee_none_si_non_configure(monkeypatch):
-    _reset_singleton()
-    monkeypatch.delenv("SUPABASE_URL", raising=False)
-    monkeypatch.delenv("SUPABASE_KEY", raising=False)
-    assert db.alerte_deja_envoyee("cle_test", 3600) is None

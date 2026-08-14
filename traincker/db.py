@@ -74,13 +74,45 @@ def inserer_departs(departs: list[dict], gare_nom: str, horodatage: str) -> bool
     return True
 
 
-def charger_departs() -> Optional[list[dict]]:
-    """Retourne toutes les lignes de la table 'departures', ou None si non configuré."""
+def charger_departs(limite: int = 5000) -> Optional[list[dict]]:
+    """
+    Retourne les lignes de la table 'departures', les plus récentes en
+    premier, ou None si non configuré.
+
+    Sans tri ni limite explicites, l'API Supabase plafonne silencieusement
+    à 1000 lignes (comportement par défaut de PostgREST) : une fois la
+    table plus grosse que ça, un simple `select("*")` peut renvoyer un
+    sous-ensemble tronqué qui n'inclut plus les lignes les plus récentes,
+    ce qui explique un "Dernière collecte" figé et des stats qui semblent
+    ne plus se mettre à jour. Trier explicitement par date décroissante
+    garantit que les données les plus récentes sont toujours incluses.
+    """
     client = obtenir_client()
     if not client:
         return None
-    reponse = client.table("departures").select("*").execute()
+    reponse = (
+        client.table("departures")
+        .select("*")
+        .order("horodatage_collecte", desc=True)
+        .limit(limite)
+        .execute()
+    )
     return reponse.data
+
+
+def charger_dernier_horodatage() -> Optional[str]:
+    """Retourne l'horodatage de la ligne la plus récente, sans charger toute la table."""
+    client = obtenir_client()
+    if not client:
+        return None
+    reponse = (
+        client.table("departures")
+        .select("horodatage_collecte")
+        .order("horodatage_collecte", desc=True)
+        .limit(1)
+        .execute()
+    )
+    return reponse.data[0]["horodatage_collecte"] if reponse.data else None
 
 
 def alerte_deja_envoyee(cle: str, delai_secondes: int) -> Optional[bool]:
