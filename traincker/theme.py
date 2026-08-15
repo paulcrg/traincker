@@ -61,7 +61,16 @@ div[class*="st-key-card_"]:hover { transform: translateY(-2px); box-shadow: 0 12
     border-radius: 14px !important; background: rgba(255, 255, 255, 0.05) !important;
     border: 1px solid var(--tk-glass-border) !important; color: var(--tk-text) !important;
 }
-.block-container { padding-top: 2.5rem; z-index: 1; position: relative; animation: tk-fade-in 0.5s ease; }
+.block-container {
+    padding-top: 2rem; padding-bottom: 2rem;
+    max-width: 980px !important;
+    z-index: 1; position: relative; animation: tk-fade-in 0.5s ease;
+}
+/* Réduit les marges verticales par défaut de Streamlit entre les éléments,
+   qui laissaient de gros blancs entre les cartes et les widgets. */
+div[data-testid="stVerticalBlock"] > div:has(> div.stMarkdown) { margin-bottom: 0; }
+.element-container { margin-bottom: 0.6rem !important; }
+div[class*="st-key-card_"] { margin-bottom: 0.5rem; }
 @keyframes tk-fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 .tk-banner-alert {
     background: linear-gradient(90deg, rgba(239,91,91,0.18), rgba(239,91,91,0.06));
