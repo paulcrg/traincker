@@ -748,8 +748,12 @@ déploiement continu (GitHub Actions + Render), traduit en 5 langues.
 
         canal_discord = st.checkbox(t("alertes_discord_label", _langue), value=_parametres_globaux["canal_discord"], key="param_discord", disabled=LECTURE_SEULE)
         canal_email = st.checkbox(t("alertes_email_label", _langue), value=_parametres_globaux["canal_email"], key="param_email", disabled=LECTURE_SEULE)
+        # En lecture seule (site public), on n'affiche jamais la vraie valeur
+        # même dans un champ désactivé : Streamlit rend la valeur telle
+        # quelle, ce qui exposerait l'email réel du propriétaire aux visiteurs.
+        _valeur_email_affichee = "••••••@••••••.com" if LECTURE_SEULE else _parametres_globaux["email_destinataire"]
         email_destinataire = st.text_input(
-            t("adresse_email_label", _langue), value=_parametres_globaux["email_destinataire"],
+            t("adresse_email_label", _langue), value=_valeur_email_affichee,
             key="param_email_dest", disabled=(not canal_email) or LECTURE_SEULE, placeholder="toi@exemple.com",
         )
         alertes_meteo = st.checkbox(t("alertes_meteo_label", _langue), value=_parametres_globaux["alertes_meteo"], key="param_meteo", disabled=LECTURE_SEULE)
