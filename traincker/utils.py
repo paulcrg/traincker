@@ -67,15 +67,24 @@ NOMS_LIGNES_LETTRES = {
 
 def humaniser_ligne(code: str) -> str:
     """
-    Transforme un code de mission brut (ex: "P20") en nom de ligne lisible
-    (ex: "Transilien P"). Les libellés déjà complets (ex: "TER 8351",
-    "TGV INOUI 6201") ne correspondent pas au motif et restent inchangés.
+    Transforme un code de ligne/mission brut en nom lisible :
+    - lettre seule (ex: "E", "L") -> "RER E", "Transilien L"
+    - lettre + numéro de mission, avec suffixe optionnel (ex: "P20", "K1+",
+      "K21+") -> "Transilien P", "Transilien K"
+
+    Les libellés déjà complets (ex: "TER 8351", "TGV INOUI 6201") ne
+    correspondent à aucun de ces motifs et restent inchangés.
     """
     if not code:
         return code
 
-    match = re.fullmatch(r"([A-Z])\d{1,3}[A-Z]?", code.strip())
-    if not match:
-        return code
+    code_nettoye = code.strip()
 
-    return NOMS_LIGNES_LETTRES.get(match.group(1), code)
+    if re.fullmatch(r"[A-Z]", code_nettoye):
+        return NOMS_LIGNES_LETTRES.get(code_nettoye, code)
+
+    match = re.fullmatch(r"([A-Z])\d{1,3}[A-Z]?\+?", code_nettoye)
+    if match:
+        return NOMS_LIGNES_LETTRES.get(match.group(1), code)
+
+    return code

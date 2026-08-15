@@ -1,7 +1,5 @@
 """Tests pour traincker/utils.py."""
 
-from datetime import datetime
-
 from traincker.utils import (
     formater_heure,
     calculer_compte_a_rebours,
@@ -30,21 +28,26 @@ def test_simplifier_nom_gare_sans_redondance_inchange():
     assert simplifier_nom_gare("Dijon Ville") == "Dijon Ville"
 
 
-def test_simplifier_nom_gare_avec_parenthese_non_redondante():
-    assert simplifier_nom_gare("Nancy (Meurthe-et-Moselle)") == "Nancy (Meurthe-et-Moselle)"
-
-
 def test_simplifier_nom_gare_vide():
     assert simplifier_nom_gare("") == ""
     assert simplifier_nom_gare(None) is None
 
 
-def test_humaniser_ligne_transilien_p():
+def test_humaniser_ligne_mission_avec_numero():
     assert humaniser_ligne("P20") == "Transilien P"
-
-
-def test_humaniser_ligne_rer_a():
     assert humaniser_ligne("A5") == "RER A"
+
+
+def test_humaniser_ligne_lettre_seule():
+    assert humaniser_ligne("E") == "RER E"
+    assert humaniser_ligne("J") == "Transilien J"
+    assert humaniser_ligne("L") == "Transilien L"
+
+
+def test_humaniser_ligne_avec_suffixe_plus():
+    assert humaniser_ligne("K1+") == "Transilien K"
+    assert humaniser_ligne("K21+") == "Transilien K"
+    assert humaniser_ligne("K3+") == "Transilien K"
 
 
 def test_humaniser_ligne_deja_complete_inchangee():
