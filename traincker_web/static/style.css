@@ -161,3 +161,24 @@ label.tk-field-label { display: block; font-weight: 600; margin: 0.9rem 0 0.4rem
 .tk-table th { color: var(--tk-text-muted); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; }
 
 .tk-chart { width: 100%; height: auto; border-radius: 14px; margin: 0.6rem 0 1.4rem; display: block; }
+
+/* Footer global */
+.tk-footer {
+    display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 10px;
+    text-align: center; color: var(--tk-text-muted); font-size: 0.85rem; font-weight: 500;
+    letter-spacing: 0.01em; margin-top: 3rem; padding: 1.5rem 0 1rem; border-top: 1px solid var(--tk-glass-border);
+}
+.tk-footer-sep { color: var(--tk-glass-border); }
+.tk-footer-link { color: var(--tk-text-muted); font-weight: 600; }
+
+/* Page En savoir plus */
+.tk-tech-text { line-height: 1.7; font-size: 0.95rem; }
+.tk-tech-text ul { padding-left: 1.2rem; margin: 0.4rem 0; }
+.tk-tech-text code {
+    background: rgba(255,255,255,0.08); padding: 1px 6px; border-radius: 6px;
+    font-family: 'Courier New', monospace; font-size: 0.85rem;
+}
+.tk-changelog-entry { padding: 0.6rem 0; }
+.tk-changelog-entry + .tk-changelog-entry { border-top: 1px solid var(--tk-glass-border); }
+.tk-changelog-titre { font-weight: 600; }
+.tk-changelog-desc { color: var(--tk-text-muted); font-size: 0.88rem; margin-top: 2px; }

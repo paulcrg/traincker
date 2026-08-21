@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="tk-card">
+    {{ titre_section('pin', 'En savoir plus') | safe }}
+    <p>À compléter.</p>
+</div>
+
+<div class="tk-card">
+    {{ titre_section('shield', 'Vue technique') | safe }}
+    <div class="tk-tech-text">
+        <p><strong>Stack</strong> : Python, FastAPI, HTMX, pandas/numpy, matplotlib, API SNCF (Navitia), Supabase.</p>
+        <p><strong>Architecture</strong> :</p>
+        <ul>
+            <li><code>api_client.py</code> — client HTTP vers l'API SNCF, avec timeout et gestion d'erreurs</li>
+            <li><code>monitor.py</code> — surveillance périodique, alertes Discord/email, heures de silence</li>
+            <li><code>analysis.py</code> / <code>viz.py</code> — statistiques de ponctualité et visualisations</li>
+            <li><code>traincker_web/</code> — interface FastAPI + HTMX (recherche, favoris, statistiques)</li>
+            <li><code>db.py</code> — persistance partagée Supabase entre la surveillance et le site hébergé</li>
+        </ul>
+        <p><strong>Points notables</strong> : mode dégradé en cas de panne API, suite de tests automatisés (pytest), déploiement continu (GitHub Actions + Render).</p>
+    </div>
+    <div class="tk-btn-row">
+        <a class="tk-btn" href="https://github.com/paulcrg/traincker" target="_blank" rel="noopener">Voir le code sur GitHub</a>
+    </div>
+</div>
+
+<div class="tk-card">
+    {{ titre_section('clock', 'Historique des évolutions') | safe }}
+    {% for entree in changelog %}
+    <div class="tk-changelog-entry">
+        <div class="tk-changelog-titre">{{ entree.titre }}</div>
+        <div class="tk-changelog-desc">{{ entree.description }}</div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="tk-card">
+    {{ titre_section('alert', 'Un problème ?') | safe }}
+    <div class="tk-btn-row">
+        <a
+            class="tk-btn"
+            href="https://github.com/paulcrg/traincker/issues/new?title=Bug%20signal%C3%A9%20depuis%20le%20site&body=D%C3%A9cris%20le%20probl%C3%A8me%20rencontr%C3%A9%20ici."
+            target="_blank" rel="noopener"
+        >Signaler un bug</a>
+    </div>
+</div>
+{% endblock %}

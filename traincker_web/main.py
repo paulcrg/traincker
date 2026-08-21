@@ -27,6 +27,7 @@ from traincker.utils import formater_heure, calculer_compte_a_rebours
 from traincker.favoris import charger_favoris, sauvegarder_favoris
 from traincker.models import Trajet
 from traincker.icons import icono, titre_section
+from traincker.changelog import CHANGELOG
 from traincker.analysis import (
     charger_donnees,
     stats_ponctualite_par_ligne,
@@ -403,4 +404,14 @@ def export_stats_pdf():
         content=buffer_pdf.getvalue(),
         media_type="application/pdf",
         headers={"Content-Disposition": "attachment; filename=traincker_stats.pdf"},
+    )
+
+
+# --- En savoir plus (socle statique) -------------------------------------
+
+@app.get("/apropos", response_class=HTMLResponse)
+def page_apropos(request: Request):
+    return templates.TemplateResponse(
+        "apropos.html",
+        {"request": request, "page": "apropos", "changelog": CHANGELOG},
     )

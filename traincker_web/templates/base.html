@@ -23,10 +23,19 @@
         <a href="/" class="{{ 'active' if page == 'recherche' else '' }}">Recherche</a>
         <a href="/favoris" class="{{ 'active' if page == 'favoris' else '' }}">Favoris</a>
         <a href="/stats" class="{{ 'active' if page == 'stats' else '' }}">Statistiques</a>
+        <a href="/apropos" class="{{ 'active' if page == 'apropos' else '' }}">En savoir plus</a>
     </nav>
 
     <main class="container">
         {% block content %}{% endblock %}
+
+        <div class="tk-footer">
+            <span>© 2026 Traincker</span>
+            <span class="tk-footer-sep">•</span>
+            <span>Paul Crémoux Guiblain</span>
+            <span class="tk-footer-sep">•</span>
+            <span class="tk-footer-link">paulcrg</span>
+        </div>
     </main>
 </body>
 </html>
