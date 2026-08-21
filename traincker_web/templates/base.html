@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Traincker</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/htmx/2.0.3/htmx.min.js"></script>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="tk-blob tk-blob-1"></div>
+    <div class="tk-blob tk-blob-2"></div>
+
+    <div class="tk-logo-wrap">🚆 Traincker</div>
+    <p class="tk-caption">Suivi personnel des trains SNCF</p>
+
+    <nav class="navbar">
+        <a href="/" class="{{ 'active' if page == 'recherche' else '' }}">Recherche</a>
+        <a href="/favoris" class="{{ 'active' if page == 'favoris' else '' }}">Favoris</a>
+        <a href="#" class="disabled">Statistiques</a>
+    </nav>
+
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

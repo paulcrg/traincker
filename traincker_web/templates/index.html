@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="tk-card">
+    <div class="tk-section-title">🔍 Prochains départs</div>
+    <p class="tk-hint">Recherche une gare (minimum 3 caractères)</p>
+
+    <input
+        type="text"
+        name="q"
+        placeholder="ex: Dijon"
+        autocomplete="off"
+        hx-get="/gares/suggestions"
+        hx-trigger="keyup changed delay:300ms"
+        hx-target="#suggestions"
+        hx-indicator="#spinner"
+    >
+    <span id="spinner" class="htmx-indicator">Recherche…</span>
+
+    <div id="suggestions"></div>
+</div>
+
+<div id="resultats"></div>
+{% endblock %}

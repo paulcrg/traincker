@@ -1,0 +1,39 @@
+<div class="tk-card">
+    <h2>{{ gare_nom }}</h2>
+
+    {% if perturbations %}
+    <div class="perturbations">
+        {% for p in perturbations %}
+        <div class="alerte-perturbation">
+            <strong>{{ p.titre }}</strong>
+            <p>{{ p.message }}</p>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if departs %}
+    <table class="table-departs">
+        <thead>
+            <tr>
+                <th>Ligne</th>
+                <th>Direction</th>
+                <th>Heure</th>
+                <th>Dans</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for d in departs %}
+            <tr class="{{ 'perturbe' if d.perturbe else '' }}">
+                <td>{{ d.ligne }}</td>
+                <td>{{ d.direction }}</td>
+                <td>{{ d.heure }}</td>
+                <td>{{ d.compte_a_rebours }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="tk-empty">Aucun départ trouvé pour cette gare.</p>
+    {% endif %}
+</div>

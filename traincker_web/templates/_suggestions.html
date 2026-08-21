@@ -1,0 +1,19 @@
+<ul class="liste-suggestions">
+    {% for gare in gares %}
+    <li>
+        <button
+            type="button"
+            hx-post="/departs"
+            hx-target="#resultats"
+            hx-vals='{"gare_id": "{{ gare.id }}", "gare_nom": "{{ gare.name }}"}'
+            hx-on::after-request="document.getElementById('suggestions').innerHTML = ''; document.querySelector('input[name=q]').value = '{{ gare.name }}';"
+        >
+            {{ gare.name }}
+        </button>
+    </li>
+    {% else %}
+        {% if recherche_faite %}
+        <li class="suggestion-vide">Aucune gare trouvée</li>
+        {% endif %}
+    {% endfor %}
+</ul>

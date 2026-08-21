@@ -1,0 +1,43 @@
+{% if not favoris %}
+<p class="tk-empty">Aucun trajet favori pour l'instant.</p>
+{% else %}
+{% for item in favoris %}
+<div class="tk-favori">
+    <div class="tk-favori-ligne">
+        <span class="tk-dot {{ 'tk-dot-ok' if item.trajet.actif else 'tk-dot-alert' }}"></span>
+        <div>
+            <div class="tk-favori-nom">{{ item.trajet.nom }}</div>
+            <div class="tk-favori-trajet">{{ item.trajet.gare_depart_nom }} → {{ item.trajet.gare_arrivee_nom }}</div>
+            {% if item.trajet.actif and item.prochain_depart %}
+            <div class="tk-next-train">
+                <span class="tk-next-train-time">{{ item.prochain_depart.heure }}</span>
+                <span class="tk-next-train-countdown">{{ item.prochain_depart.compte_a_rebours }}</span>
+            </div>
+            {% endif %}
+        </div>
+        <div class="tk-favori-actions">
+            <button
+                class="tk-btn tk-btn-compact"
+                hx-post="/favoris/{{ item.index }}/toggle"
+                hx-target="#favoris-liste"
+            >{{ 'Désactiver' if item.trajet.actif else 'Activer' }}</button>
+            <button
+                class="tk-btn tk-btn-compact tk-btn-danger"
+                hx-delete="/favoris/{{ item.index }}"
+                hx-target="#favoris-liste"
+                hx-confirm="Supprimer le trajet « {{ item.trajet.nom }} » ?"
+            >Supprimer</button>
+        </div>
+    </div>
+    {% if not item.a_deja_retour %}
+    <div class="tk-btn-row">
+        <button
+            class="tk-btn tk-btn-compact"
+            hx-post="/favoris/{{ item.index }}/retour"
+            hx-target="#favoris-liste"
+        >Créer le trajet retour</button>
+    </div>
+    {% endif %}
+</div>
+{% endfor %}
+{% endif %}

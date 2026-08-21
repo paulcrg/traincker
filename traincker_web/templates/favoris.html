@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="tk-card">
+    <div class="tk-section-title">⭐ Trajets favoris</div>
+    <div id="favoris-liste">
+        {% include "_favoris_liste.html" %}
+    </div>
+</div>
+
+<div class="tk-card">
+    <div class="tk-section-title">➕ Ajouter un trajet</div>
+    <p class="tk-hint">Nomme ton trajet, puis cherche les gares de départ et d'arrivée</p>
+
+    <form
+        id="form-ajout-favori"
+        hx-post="/favoris/ajouter"
+        hx-target="#favoris-liste"
+        hx-on::after-request="if(event.detail.successful){this.reset(); document.getElementById('selection-depart').innerHTML=''; document.getElementById('selection-arrivee').innerHTML=''; document.getElementById('gare_depart_id').value=''; document.getElementById('gare_depart_nom').value=''; document.getElementById('gare_arrivee_id').value=''; document.getElementById('gare_arrivee_nom').value='';}"
+    >
+        <label class="tk-field-label" for="nom">Nom du trajet</label>
+        <input type="text" id="nom" name="nom" placeholder="ex: Domicile -> ESEO" required>
+
+        <label class="tk-field-label">Gare de départ</label>
+        <input
+            type="text"
+            placeholder="ex: Nuits-Saint-Georges"
+            autocomplete="off"
+            hx-get="/favoris/gares/suggestions?champ=depart"
+            hx-trigger="keyup changed delay:300ms"
+            hx-target="#suggestions-depart"
+        >
+        <div id="suggestions-depart"></div>
+        <div id="selection-depart" class="tk-selection"></div>
+        <input type="hidden" id="gare_depart_id" name="gare_depart_id" required>
+        <input type="hidden" id="gare_depart_nom" name="gare_depart_nom">
+
+        <label class="tk-field-label">Gare d'arrivée</label>
+        <input
+            type="text"
+            placeholder="ex: Dijon Ville"
+            autocomplete="off"
+            hx-get="/favoris/gares/suggestions?champ=arrivee"
+            hx-trigger="keyup changed delay:300ms"
+            hx-target="#suggestions-arrivee"
+        >
+        <div id="suggestions-arrivee"></div>
+        <div id="selection-arrivee" class="tk-selection"></div>
+        <input type="hidden" id="gare_arrivee_id" name="gare_arrivee_id" required>
+        <input type="hidden" id="gare_arrivee_nom" name="gare_arrivee_nom">
+
+        <div class="tk-btn-row">
+            <button type="submit" class="tk-btn tk-btn-primary">Ajouter le trajet</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

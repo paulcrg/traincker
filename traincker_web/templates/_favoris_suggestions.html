@@ -1,0 +1,21 @@
+<ul class="liste-suggestions">
+    {% for gare in gares %}
+    <li>
+        <button
+            type="button"
+            onclick="
+                document.getElementById('gare_{{ champ }}_id').value = '{{ gare.id }}';
+                document.getElementById('gare_{{ champ }}_nom').value = '{{ gare.name }}';
+                document.getElementById('selection-{{ champ }}').innerHTML = 'Sélection : <strong>{{ gare.name }}</strong>';
+                document.getElementById('suggestions-{{ champ }}').innerHTML = '';
+            "
+        >
+            {{ gare.name }}
+        </button>
+    </li>
+    {% else %}
+        {% if recherche_faite %}
+        <li class="suggestion-vide">Aucune gare trouvée</li>
+        {% endif %}
+    {% endfor %}
+</ul>
