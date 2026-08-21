@@ -11,8 +11,10 @@ Lancer en local :
 
 from pathlib import Path
 import io
+import json
+import os
 
-from fastapi import FastAPI, Request, Form
+from fastapi import FastAPI, Request, Form, UploadFile, File
 from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -58,6 +60,7 @@ templates.env.globals["titre_section"] = titre_section
 client = NavitiaClient()
 
 SEUIL_RECHERCHE = 3  # nombre de caractères minimum avant de chercher une gare
+LECTURE_SEULE = os.getenv("TRAINCKER_READONLY", "").lower() in ("1", "true", "yes")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -413,5 +416,60 @@ def export_stats_pdf():
 def page_apropos(request: Request):
     return templates.TemplateResponse(
         "apropos.html",
-        {"request": request, "page": "apropos", "changelog": CHANGELOG},
+        {
+            "request": request,
+            "page": "apropos",
+            "changelog": CHANGELOG,
+            "lecture_seule": LECTURE_SEULE,
+        },
+    )
+
+
+def _favoris_vers_export(favoris: list[Trajet]) -> dict:
+    return {
+        "trajets": [
+            {
+                "nom": t.nom,
+                "gare_depart_id": t.gare_depart_id,
+                "gare_depart_nom": t.gare_depart_nom,
+                "gare_arrivee_id": t.gare_arrivee_id,
+                "gare_arrivee_nom": t.gare_arrivee_nom,
+                "actif": t.actif,
+            }
+            for t in favoris
+        ]
+    }
+
+
+@app.get("/apropos/export")
+def exporter_favoris_config():
+    data = _favoris_vers_export(charger_favoris())
+    contenu = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
+    return Response(
+        content=contenu,
+        media_type="application/json",
+        headers={"Content-Disposition": "attachment; filename=traincker_favoris.json"},
+    )
+
+
+@app.post("/apropos/importer", response_class=HTMLResponse)
+async def importer_favoris_config(request: Request, fichier: UploadFile = File(...)):
+    if LECTURE_SEULE:
+        return templates.TemplateResponse(
+            "_import_resultat.html",
+            {"request": request, "erreur": "Import désactivé en lecture seule."},
+        )
+
+    try:
+        contenu = await fichier.read()
+        data = json.loads(contenu.decode("utf-8"))
+        trajets = [Trajet(**tr) for tr in data.get("trajets", [])]
+    except (json.JSONDecodeError, TypeError, KeyError, UnicodeDecodeError) as err:
+        return templates.TemplateResponse(
+            "_import_resultat.html", {"request": request, "erreur": str(err)}
+        )
+
+    sauvegarder_favoris(trajets)
+    return templates.TemplateResponse(
+        "_import_resultat.html", {"request": request, "succes": True, "nombre": len(trajets)}
     )

@@ -36,6 +36,34 @@
 </div>
 
 <div class="tk-card">
+    {{ titre_section('download', 'Sauvegarde de la configuration') | safe }}
+    <p class="tk-hint">Exporte tes trajets favoris dans un fichier, ou restaure une sauvegarde précédente.</p>
+
+    <div class="tk-btn-row">
+        <a class="tk-btn" href="/apropos/export">Exporter mes trajets</a>
+    </div>
+
+    {% if not lecture_seule %}
+    <form
+        hx-post="/apropos/importer"
+        hx-target="#import-resultat"
+        hx-encoding="multipart/form-data"
+        hx-confirm="Remplacer tous tes trajets favoris actuels par le contenu de ce fichier ?"
+        style="margin-top: 1.2rem;"
+    >
+        <label class="tk-field-label" for="fichier-import">Restaurer depuis un fichier</label>
+        <input type="file" id="fichier-import" name="fichier" accept="application/json" required>
+        <div class="tk-btn-row">
+            <button type="submit" class="tk-btn tk-btn-primary">Importer</button>
+        </div>
+    </form>
+    <div id="import-resultat"></div>
+    {% else %}
+    <p class="tk-hint">Export/import désactivés en lecture seule.</p>
+    {% endif %}
+</div>
+
+<div class="tk-card">
     {{ titre_section('alert', 'Un problème ?') | safe }}
     <div class="tk-btn-row">
         <a

@@ -1,0 +1,5 @@
+{% if erreur %}
+<p class="tk-confirm-text">Fichier invalide : {{ erreur }}</p>
+{% elif succes %}
+<p class="tk-success">{{ nombre }} trajet{{ 's' if nombre != 1 else '' }} restauré{{ 's' if nombre != 1 else '' }}.</p>
+{% endif %}
