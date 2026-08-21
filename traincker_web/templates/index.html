@@ -2,7 +2,7 @@
 
 {% block content %}
 <div class="tk-card">
-    <div class="tk-section-title">🔍 Prochains départs</div>
+    {{ titre_section('search', 'Prochains départs') | safe }}
     <p class="tk-hint">Recherche une gare (minimum 3 caractères)</p>
 
     <input

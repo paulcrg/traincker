@@ -2,14 +2,14 @@
 
 {% block content %}
 <div class="tk-card">
-    <div class="tk-section-title">⭐ Trajets favoris</div>
+    {{ titre_section('star', 'Trajets favoris') | safe }}
     <div id="favoris-liste">
         {% include "_favoris_liste.html" %}
     </div>
 </div>
 
 <div class="tk-card">
-    <div class="tk-section-title">➕ Ajouter un trajet</div>
+    {{ titre_section('plus', 'Ajouter un trajet') | safe }}
     <p class="tk-hint">Nomme ton trajet, puis cherche les gares de départ et d'arrivée</p>
 
     <form

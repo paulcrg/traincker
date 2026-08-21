@@ -20,12 +20,15 @@ from traincker.api_client import NavitiaClient, NavitiaAPIError
 from traincker.utils import formater_heure, calculer_compte_a_rebours
 from traincker.favoris import charger_favoris, sauvegarder_favoris
 from traincker.models import Trajet
+from traincker.icons import icono, titre_section
 
 BASE_DIR = Path(__file__).resolve().parent
 
 app = FastAPI(title="Traincker")
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
+templates.env.globals["icono"] = icono
+templates.env.globals["titre_section"] = titre_section
 
 # Un seul client Navitia réutilisé pour toute l'app (comme dans le
 # dashboard Streamlit).
