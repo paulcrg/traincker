@@ -139,3 +139,25 @@ label.tk-field-label { display: block; font-weight: 600; margin: 0.9rem 0 0.4rem
     background: linear-gradient(90deg, rgba(239,91,91,0.18), rgba(239,91,91,0.06));
     border: 1px solid rgba(239,91,91,0.35); border-radius: 14px; padding: 0.75rem 1rem; color: var(--tk-danger); margin-top: 1rem;
 }
+
+/* Statistiques */
+.tk-chip-row { display: flex; gap: 12px; margin-bottom: 1.4rem; }
+.tk-chip {
+    flex: 1; background: var(--tk-glass); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--tk-glass-border); border-radius: 16px; padding: 0.7rem 1rem; text-align: center; transition: transform 0.2s ease;
+}
+.tk-chip:hover { transform: translateY(-2px); }
+.tk-chip-label { display: block; font-size: 0.72rem; color: var(--tk-text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 2px; }
+.tk-chip-value { display: block; font-size: 1.25rem; font-weight: 700; color: var(--tk-text); }
+
+.tk-insight {
+    background: rgba(91, 141, 239, 0.08); border: 1px solid rgba(91, 141, 239, 0.25); border-radius: 12px;
+    padding: 0.8rem 1.1rem; margin-bottom: 1rem; font-size: 0.95rem; line-height: 1.6;
+}
+.tk-legend { font-size: 0.78rem; color: var(--tk-text-muted); margin-top: 0.5rem; }
+
+.tk-table { width: 100%; border-collapse: collapse; margin: 0.6rem 0 1rem; font-size: 0.9rem; }
+.tk-table th, .tk-table td { padding: 0.5rem 0.6rem; text-align: left; border-bottom: 1px solid var(--tk-glass-border); }
+.tk-table th { color: var(--tk-text-muted); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; }
+
+.tk-chart { width: 100%; height: auto; border-radius: 14px; margin: 0.6rem 0 1.4rem; display: block; }

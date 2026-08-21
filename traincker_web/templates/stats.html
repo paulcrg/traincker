@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="tk-card">
+    {{ titre_section('chart', 'Statistiques de ponctualité') | safe }}
+
+    {% if message_vide %}
+    <p class="tk-empty">{{ message_vide }}</p>
+    {% else %}
+
+    {% if synthese %}
+    <div class="tk-insight">{{ synthese }}</div>
+    {% endif %}
+
+    <div class="tk-chip-row">
+        <div class="tk-chip">
+            <span class="tk-chip-label">Temps de retard cumulé</span>
+            <span class="tk-chip-value">{{ heures_perdues }} h</span>
+        </div>
+        <div class="tk-chip">
+            <span class="tk-chip-label">Tendance récente</span>
+            <span class="tk-chip-value">{{ tendance_libelle or "Pas assez de données" }}</span>
+        </div>
+    </div>
+
+    <table class="tk-table">
+        <thead>
+            <tr>{% for col in colonnes_ligne %}<th>{{ col }}</th>{% endfor %}</tr>
+        </thead>
+        <tbody>
+            {% for ligne in table_ligne %}
+            <tr>
+                <td>{{ ligne.ligne }}</td>
+                <td>{{ ligne['Ponctualité'] }}</td>
+                <td>{{ ligne['Retard moyen'] }}</td>
+                <td>{{ ligne['Régularité'] }}</td>
+                <td>{{ ligne['Trains observés'] }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <p class="tk-legend">Ponctualité : part des trains arrivés avec moins de 5 minutes de retard.</p>
+
+    <h3>Retard moyen par ligne</h3>
+    <img class="tk-chart" src="/stats/graphique/retard-ligne.png" alt="Retard moyen par ligne">
+
+    <h3>Évolution du retard dans le temps</h3>
+    <img class="tk-chart" src="/stats/graphique/tendance.png" alt="Évolution du retard moyen">
+
+    <h3>Fiabilité par gare</h3>
+    <table class="tk-table">
+        <thead>
+            <tr>{% for col in colonnes_gare %}<th>{{ col }}</th>{% endfor %}</tr>
+        </thead>
+        <tbody>
+            {% for gare in table_gare %}
+            <tr>
+                <td>{{ gare.gare }}</td>
+                <td>{{ gare['Ponctualité'] }}</td>
+                <td>{{ gare['Retard moyen'] }}</td>
+                <td>{{ gare['Régularité'] }}</td>
+                <td>{{ gare['Trains observés'] }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if afficher_heatmap %}
+    <h3>Répartition des retards (jour / heure)</h3>
+    <img class="tk-chart" src="/stats/graphique/heatmap.png" alt="Répartition des retards par jour et heure">
+    {% else %}
+    <p class="tk-hint">Pas encore assez de données pour cette vue.</p>
+    {% endif %}
+
+    {{ titre_section('download', 'Exporter') | safe }}
+    <div class="tk-btn-row">
+        <a class="tk-btn" href="/stats/export/csv">Export CSV</a>
+        <a class="tk-btn" href="/stats/export/pdf">Export PDF</a>
+    </div>
+
+    {% endif %}
+</div>
+{% endblock %}

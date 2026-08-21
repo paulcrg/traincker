@@ -10,17 +10,39 @@ Lancer en local :
 """
 
 from pathlib import Path
+import io
 
 from fastapi import FastAPI, Request, Form
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+
+import matplotlib
+matplotlib.use("Agg")  # pas d'interface graphique : on ne fait que générer des PNG
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 
 from traincker.api_client import NavitiaClient, NavitiaAPIError
 from traincker.utils import formater_heure, calculer_compte_a_rebours
 from traincker.favoris import charger_favoris, sauvegarder_favoris
 from traincker.models import Trajet
 from traincker.icons import icono, titre_section
+from traincker.analysis import (
+    charger_donnees,
+    stats_ponctualite_par_ligne,
+    stats_ponctualite_par_gare,
+    tendance_retard_dans_le_temps,
+    heatmap_retards_heure_jour,
+    detecter_tendance,
+    temps_perdu_cumule_minutes,
+    generer_synthese,
+    formater_stats_affichage,
+)
+from traincker.viz import (
+    graphe_retard_par_ligne,
+    graphe_tendance_temporelle,
+    graphe_heatmap_retards,
+)
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -252,4 +274,133 @@ def creer_trajet_retour(request: Request, index: int):
     return templates.TemplateResponse(
         "_favoris_liste.html",
         {"request": request, "favoris": _construire_contexte_favoris()},
+    )
+
+
+# --- Statistiques --------------------------------------------------------
+
+TENDANCE_LIBELLES = {
+    "amelioration": "En amélioration",
+    "degradation": "En dégradation",
+    "stable": "Stable",
+}
+
+
+def _dataframe_vers_lignes(df) -> list[dict]:
+    """Transforme un DataFrame pandas (index = ligne/gare) en liste de
+    dicts exploitables simplement par Jinja2, colonne d'index incluse."""
+    df = df.reset_index()
+    return df.to_dict(orient="records")
+
+
+def _figure_vers_png(fig) -> Response:
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", bbox_inches="tight", dpi=110, transparent=True)
+    plt.close(fig)
+    buf.seek(0)
+    return Response(content=buf.getvalue(), media_type="image/png")
+
+
+@app.get("/stats", response_class=HTMLResponse)
+def page_stats(request: Request):
+    contexte = {"request": request, "page": "stats"}
+
+    try:
+        df = charger_donnees()
+    except FileNotFoundError as err:
+        contexte["message_vide"] = str(err)
+        return templates.TemplateResponse("stats.html", contexte)
+
+    stats_ligne = stats_ponctualite_par_ligne(df)
+    if stats_ligne.empty:
+        contexte["message_vide"] = "Pas encore assez de données collectées pour afficher des statistiques."
+        return templates.TemplateResponse("stats.html", contexte)
+
+    stats_gare = stats_ponctualite_par_gare(df)
+    pivot = heatmap_retards_heure_jour(df)
+    tendance_info = detecter_tendance(df)
+
+    contexte.update(
+        {
+            "synthese": generer_synthese(stats_ligne),
+            "heures_perdues": round(temps_perdu_cumule_minutes(df) / 60, 1),
+            "tendance_libelle": (
+                TENDANCE_LIBELLES[tendance_info["direction"]] if tendance_info else None
+            ),
+            "colonnes_ligne": ["Ligne", "Ponctualité", "Retard moyen", "Régularité", "Trains observés"],
+            "table_ligne": _dataframe_vers_lignes(formater_stats_affichage(stats_ligne)),
+            "colonnes_gare": ["Gare", "Ponctualité", "Retard moyen", "Régularité", "Trains observés"],
+            "table_gare": _dataframe_vers_lignes(formater_stats_affichage(stats_gare)),
+            "afficher_heatmap": not pivot.dropna(how="all").empty,
+        }
+    )
+    return templates.TemplateResponse("stats.html", contexte)
+
+
+@app.get("/stats/graphique/retard-ligne.png")
+def graphique_retard_ligne():
+    df = charger_donnees()
+    stats = stats_ponctualite_par_ligne(df)
+    return _figure_vers_png(graphe_retard_par_ligne(stats))
+
+
+@app.get("/stats/graphique/tendance.png")
+def graphique_tendance():
+    df = charger_donnees()
+    tendance = tendance_retard_dans_le_temps(df)
+    return _figure_vers_png(graphe_tendance_temporelle(tendance))
+
+
+@app.get("/stats/graphique/heatmap.png")
+def graphique_heatmap():
+    df = charger_donnees()
+    pivot = heatmap_retards_heure_jour(df)
+    return _figure_vers_png(graphe_heatmap_retards(pivot))
+
+
+@app.get("/stats/export/csv")
+def export_stats_csv():
+    df = charger_donnees()
+    stats_affichage = formater_stats_affichage(stats_ponctualite_par_ligne(df))
+    csv_bytes = stats_affichage.to_csv().encode("utf-8")
+    return Response(
+        content=csv_bytes,
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=traincker_stats.csv"},
+    )
+
+
+@app.get("/stats/export/pdf")
+def export_stats_pdf():
+    df = charger_donnees()
+    stats = stats_ponctualite_par_ligne(df)
+    stats_affichage = formater_stats_affichage(stats)
+    tendance = tendance_retard_dans_le_temps(df)
+
+    buffer_pdf = io.BytesIO()
+    with PdfPages(buffer_pdf) as pdf:
+        fig_table, ax_table = plt.subplots(figsize=(10, 3 + 0.4 * len(stats_affichage)))
+        ax_table.axis("off")
+        ax_table.table(
+            cellText=stats_affichage.values,
+            colLabels=stats_affichage.columns,
+            rowLabels=stats_affichage.index,
+            loc="center",
+        )
+        pdf.savefig(fig_table, bbox_inches="tight")
+        plt.close(fig_table)
+
+        fig_retard = graphe_retard_par_ligne(stats)
+        pdf.savefig(fig_retard, bbox_inches="tight")
+        plt.close(fig_retard)
+
+        fig_tendance = graphe_tendance_temporelle(tendance)
+        pdf.savefig(fig_tendance, bbox_inches="tight")
+        plt.close(fig_tendance)
+
+    buffer_pdf.seek(0)
+    return Response(
+        content=buffer_pdf.getvalue(),
+        media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=traincker_stats.pdf"},
     )
