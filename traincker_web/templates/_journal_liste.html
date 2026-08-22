@@ -1,0 +1,28 @@
+{% if not journal %}
+<p class="tk-empty">Aucune recherche enregistrée pour l'instant.</p>
+{% else %}
+<table class="tk-table">
+    <thead>
+        <tr><th>Date</th><th>Type</th><th>Détail</th></tr>
+    </thead>
+    <tbody>
+        {% for entree in journal %}
+        <tr>
+            <td>{{ entree.horodatage }}</td>
+            <td>{{ entree.type }}</td>
+            <td>{{ entree.detail }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% if not lecture_seule %}
+<div class="tk-btn-row">
+    <button
+        class="tk-btn tk-btn-danger"
+        hx-delete="/apropos/journal"
+        hx-target="#journal-liste"
+        hx-confirm="Vider tout l'historique personnel ?"
+    >Vider l'historique</button>
+</div>
+{% endif %}
+{% endif %}

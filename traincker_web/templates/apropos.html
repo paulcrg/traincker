@@ -64,6 +64,98 @@
 </div>
 
 <div class="tk-card">
+    {{ titre_section('alert', "Paramètres d'alerte") | safe }}
+    {% if lecture_seule %}
+    <p class="tk-hint">Modification désactivée en lecture seule.</p>
+    {% else %}
+    <form hx-post="/apropos/parametres/alertes" hx-target="#parametres-alertes-resultat">
+        <label class="tk-field-label" for="silence_debut">Début du silence</label>
+        <input type="text" id="silence_debut" name="silence_debut" value="{{ parametres.silence_debut }}" placeholder="22:00">
+
+        <label class="tk-field-label" for="silence_fin">Fin du silence</label>
+        <input type="text" id="silence_fin" name="silence_fin" value="{{ parametres.silence_fin }}" placeholder="07:00">
+        <p class="tk-hint">Aucune alerte ne sera envoyée pendant cette plage horaire.</p>
+
+        <label class="tk-checkbox-row">
+            <input type="checkbox" name="canal_discord" {{ 'checked' if parametres.canal_discord }}>
+            Alertes Discord
+        </label>
+        <label class="tk-checkbox-row">
+            <input type="checkbox" name="canal_email" {{ 'checked' if parametres.canal_email }}>
+            Alertes par email
+        </label>
+
+        <label class="tk-field-label" for="email_destinataire">Adresse email</label>
+        <input type="text" id="email_destinataire" name="email_destinataire" value="{{ parametres.email_destinataire }}" placeholder="toi@exemple.fr">
+
+        <label class="tk-checkbox-row">
+            <input type="checkbox" name="alertes_meteo" {{ 'checked' if parametres.alertes_meteo }}>
+            Alertes météo (intempéries sur le trajet)
+        </label>
+
+        <div class="tk-btn-row">
+            <button type="submit" class="tk-btn tk-btn-primary">Enregistrer</button>
+        </div>
+    </form>
+    <div id="parametres-alertes-resultat"></div>
+    {% endif %}
+</div>
+
+<div class="tk-card">
+    {{ titre_section('shield', 'Accessibilité') | safe }}
+    {% if lecture_seule %}
+    <p class="tk-hint">Modification désactivée en lecture seule.</p>
+    {% else %}
+    <form hx-post="/apropos/parametres/accessibilite" hx-swap="none" hx-on::after-request="window.location.reload()">
+        <label class="tk-checkbox-row">
+            <input type="checkbox" name="contraste_eleve" {{ 'checked' if parametres.contraste_eleve }}>
+            Contraste élevé
+        </label>
+
+        <label class="tk-field-label" for="taille_police">Taille du texte</label>
+        <select id="taille_police" name="taille_police">
+            <option value="normale" {{ 'selected' if parametres.taille_police == 'normale' }}>Normale</option>
+            <option value="grande" {{ 'selected' if parametres.taille_police == 'grande' }}>Grande</option>
+            <option value="tres_grande" {{ 'selected' if parametres.taille_police == 'tres_grande' }}>Très grande</option>
+        </select>
+
+        <label class="tk-checkbox-row">
+            <input type="checkbox" name="theme_clair" {{ 'checked' if parametres.theme_clair }}>
+            Thème clair
+        </label>
+
+        <label class="tk-field-label" for="langue">Langue</label>
+        <select id="langue" name="langue">
+            <option value="fr" {{ 'selected' if parametres.langue == 'fr' }}>Français</option>
+            <option value="en" {{ 'selected' if parametres.langue == 'en' }}>English</option>
+            <option value="de" {{ 'selected' if parametres.langue == 'de' }}>Deutsch</option>
+            <option value="no" {{ 'selected' if parametres.langue == 'no' }}>Norsk</option>
+            <option value="sv" {{ 'selected' if parametres.langue == 'sv' }}>Svenska</option>
+        </select>
+        <p class="tk-hint">Le choix de langue est enregistré, mais l'interface FastAPI reste en français pour l'instant (seul le dashboard Streamlit est déjà traduit).</p>
+
+        <div class="tk-btn-row">
+            <button type="submit" class="tk-btn tk-btn-primary">Appliquer</button>
+        </div>
+    </form>
+    {% endif %}
+</div>
+
+<div class="tk-card">
+    {{ titre_section('clock', 'Historique personnel') | safe }}
+    <div id="journal-liste">
+        {% include "_journal_liste.html" %}
+    </div>
+</div>
+
+<div class="tk-card">
+    {{ titre_section('shield', 'Logs techniques') | safe }}
+    <div id="logs-liste">
+        {% include "_logs_liste.html" %}
+    </div>
+</div>
+
+<div class="tk-card">
     {{ titre_section('alert', 'Un problème ?') | safe }}
     <div class="tk-btn-row">
         <a

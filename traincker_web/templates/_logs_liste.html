@@ -1,0 +1,15 @@
+{% if not logs %}
+<p class="tk-empty">Aucun log pour l'instant.</p>
+{% else %}
+<pre class="tk-logs">{% for ligne in logs %}{{ ligne }}{% endfor %}</pre>
+{% if not lecture_seule %}
+<div class="tk-btn-row">
+    <button
+        class="tk-btn tk-btn-danger"
+        hx-delete="/apropos/logs"
+        hx-target="#logs-liste"
+        hx-confirm="Vider les logs techniques ?"
+    >Vider les logs</button>
+</div>
+{% endif %}
+{% endif %}

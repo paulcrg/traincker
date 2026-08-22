@@ -30,6 +30,10 @@ from traincker.favoris import charger_favoris, sauvegarder_favoris
 from traincker.models import Trajet
 from traincker.icons import icono, titre_section
 from traincker.changelog import CHANGELOG
+from traincker.settings import charger_parametres, sauvegarder_parametres
+from traincker.theme import css_accessibilite, CSS_THEME_CLAIR
+from traincker.journal import ajouter_entree, lire_journal, vider_journal
+from traincker.logs import lire_logs, vider_logs
 from traincker.analysis import (
     charger_donnees,
     stats_ponctualite_par_ligne,
@@ -63,10 +67,27 @@ SEUIL_RECHERCHE = 3  # nombre de caractères minimum avant de chercher une gare
 LECTURE_SEULE = os.getenv("TRAINCKER_READONLY", "").lower() in ("1", "true", "yes")
 
 
+def _contexte_commun(page: str) -> dict:
+    """Paramètres d'accessibilité/thème à injecter dans base.html, calculés
+    à chaque requête (pas de session : tout vient de config/parametres.json)."""
+    parametres = charger_parametres()
+    theme_clair = parametres.get("theme_clair", False)
+    return {
+        "page": page,
+        "lecture_seule": LECTURE_SEULE,
+        "css_theme_clair": CSS_THEME_CLAIR if theme_clair else "",
+        "css_accessibilite": css_accessibilite(
+            parametres.get("contraste_eleve", False),
+            parametres.get("taille_police", "normale"),
+        ),
+        "logo_fichier": "logo-dark.png" if theme_clair else "logo-white.png",
+    }
+
+
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
     return templates.TemplateResponse(
-        "index.html", {"request": request, "page": "recherche"}
+        "index.html", {"request": request, **_contexte_commun("recherche")}
     )
 
 
@@ -102,6 +123,9 @@ def departs(request: Request, gare_id: str = Form(...), gare_nom: str = Form("")
         return templates.TemplateResponse(
             "_erreur.html", {"request": request, "message": str(err)}
         )
+
+    if not LECTURE_SEULE:
+        ajouter_entree("recherche", gare_nom or gare_id)
 
     departs = [
         {
@@ -174,8 +198,8 @@ def page_favoris(request: Request):
         "favoris.html",
         {
             "request": request,
-            "page": "favoris",
             "favoris": _construire_contexte_favoris(),
+            **_contexte_commun("favoris"),
         },
     )
 
@@ -307,7 +331,7 @@ def _figure_vers_png(fig) -> Response:
 
 @app.get("/stats", response_class=HTMLResponse)
 def page_stats(request: Request):
-    contexte = {"request": request, "page": "stats"}
+    contexte = {"request": request, **_contexte_commun("stats")}
 
     try:
         df = charger_donnees()
@@ -418,10 +442,88 @@ def page_apropos(request: Request):
         "apropos.html",
         {
             "request": request,
-            "page": "apropos",
             "changelog": CHANGELOG,
-            "lecture_seule": LECTURE_SEULE,
+            "parametres": charger_parametres(),
+            "journal": lire_journal(20),
+            "logs": lire_logs(30),
+            **_contexte_commun("apropos"),
         },
+    )
+
+
+@app.post("/apropos/parametres/alertes", response_class=HTMLResponse)
+def sauver_parametres_alertes(
+    request: Request,
+    silence_debut: str = Form(""),
+    silence_fin: str = Form(""),
+    canal_discord: bool = Form(False),
+    canal_email: bool = Form(False),
+    email_destinataire: str = Form(""),
+    alertes_meteo: bool = Form(False),
+):
+    if LECTURE_SEULE:
+        return templates.TemplateResponse(
+            "_parametres_resultat.html",
+            {"request": request, "erreur": "Modification désactivée en lecture seule."},
+        )
+
+    parametres = charger_parametres()
+    parametres.update(
+        {
+            "silence_debut": silence_debut.strip() or parametres["silence_debut"],
+            "silence_fin": silence_fin.strip() or parametres["silence_fin"],
+            "canal_discord": canal_discord,
+            "canal_email": canal_email,
+            "email_destinataire": email_destinataire.strip(),
+            "alertes_meteo": alertes_meteo,
+        }
+    )
+    sauvegarder_parametres(parametres)
+    return templates.TemplateResponse(
+        "_parametres_resultat.html", {"request": request, "succes": True}
+    )
+
+
+@app.post("/apropos/parametres/accessibilite")
+def sauver_parametres_accessibilite(
+    contraste_eleve: bool = Form(False),
+    taille_police: str = Form("normale"),
+    theme_clair: bool = Form(False),
+    langue: str = Form("fr"),
+):
+    if LECTURE_SEULE:
+        return Response(status_code=403)
+
+    parametres = charger_parametres()
+    parametres.update(
+        {
+            "contraste_eleve": contraste_eleve,
+            "taille_police": taille_police,
+            "theme_clair": theme_clair,
+            "langue": langue,
+        }
+    )
+    sauvegarder_parametres(parametres)
+    return Response(status_code=204)
+
+
+@app.delete("/apropos/journal", response_class=HTMLResponse)
+def supprimer_journal(request: Request):
+    if not LECTURE_SEULE:
+        vider_journal()
+    return templates.TemplateResponse(
+        "_journal_liste.html",
+        {"request": request, "journal": lire_journal(20), "lecture_seule": LECTURE_SEULE},
+    )
+
+
+@app.delete("/apropos/logs", response_class=HTMLResponse)
+def supprimer_logs(request: Request):
+    if not LECTURE_SEULE:
+        vider_logs()
+    return templates.TemplateResponse(
+        "_logs_liste.html",
+        {"request": request, "logs": lire_logs(30), "lecture_seule": LECTURE_SEULE},
     )
 
 

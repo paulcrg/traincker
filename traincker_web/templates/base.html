@@ -9,13 +9,15 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/htmx/2.0.3/htmx.min.js"></script>
     <link rel="stylesheet" href="/static/style.css">
+    {{ css_theme_clair | safe }}
+    {{ css_accessibilite | safe }}
 </head>
 <body>
     <div class="tk-blob tk-blob-1"></div>
     <div class="tk-blob tk-blob-2"></div>
 
     <div class="tk-logo-wrap">
-        <img src="/static/assets/logo-white.png" alt="Traincker" style="height:46px;">
+        <img src="/static/assets/{{ logo_fichier }}" alt="Traincker" style="height:46px;">
     </div>
     <p class="tk-caption">Suivi personnel des trains SNCF</p>
 
