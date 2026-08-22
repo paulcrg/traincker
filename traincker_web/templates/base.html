@@ -16,28 +16,45 @@
     <div class="tk-blob tk-blob-1"></div>
     <div class="tk-blob tk-blob-2"></div>
 
-    <div class="tk-logo-wrap">
-        <img src="/static/assets/{{ logo_fichier }}" alt="Traincker" style="height:46px;">
-    </div>
-    <p class="tk-caption">Suivi personnel des trains SNCF</p>
-
-    <nav class="navbar">
-        <a href="/" class="{{ 'active' if page == 'recherche' else '' }}">Recherche</a>
-        <a href="/favoris" class="{{ 'active' if page == 'favoris' else '' }}">Favoris</a>
-        <a href="/stats" class="{{ 'active' if page == 'stats' else '' }}">Statistiques</a>
-        <a href="/apropos" class="{{ 'active' if page == 'apropos' else '' }}">En savoir plus</a>
-    </nav>
-
-    <main class="container">
-        {% block content %}{% endblock %}
-
-        <div class="tk-footer">
-            <span>© 2026 Traincker</span>
-            <span class="tk-footer-sep">•</span>
-            <span>Paul Crémoux Guiblain</span>
-            <span class="tk-footer-sep">•</span>
-            <span class="tk-footer-link">paulcrg</span>
+    <div class="tk-page">
+        <div class="tk-logo-wrap">
+            <img src="/static/assets/{{ logo_fichier }}" alt="Traincker" style="height:44px;">
         </div>
-    </main>
+        <p class="tk-caption">Suivi de trains au quotidien</p>
+
+        <div class="chip-row tk-chip-row">
+            <div class="chip tk-chip">
+                <span class="chip-label tk-chip-label">Trajets actifs</span>
+                <span class="chip-value tk-chip-value">{{ kpi.trajets_actifs }}</span>
+            </div>
+            <div class="chip tk-chip">
+                <span class="chip-label tk-chip-label">Dernière collecte</span>
+                <span class="chip-value tk-chip-value">{{ kpi.derniere_collecte }}</span>
+            </div>
+            <div class="chip tk-chip">
+                <span class="chip-label tk-chip-label">Alertes envoyées</span>
+                <span class="chip-value tk-chip-value">{{ kpi.nb_alertes }}</span>
+            </div>
+        </div>
+
+        <nav class="nav">
+            <a href="/" class="nav-link {{ 'active' if page == 'recherche' else '' }}">Recherche</a>
+            <a href="/favoris" class="nav-link {{ 'active' if page == 'favoris' else '' }}">Mes trajets favoris</a>
+            <a href="/stats" class="nav-link {{ 'active' if page == 'stats' else '' }}">Statistiques</a>
+            <a href="/apropos" class="nav-link {{ 'active' if page == 'apropos' else '' }}">En savoir plus</a>
+        </nav>
+
+        <main class="container">
+            {% block content %}{% endblock %}
+
+            <div class="tk-footer">
+                <span>© 2026 Traincker</span>
+                <span class="tk-footer-sep">•</span>
+                <span>Paul Crémoux Guiblain</span>
+                <span class="tk-footer-sep">•</span>
+                <span class="tk-footer-link">paulcrg</span>
+            </div>
+        </main>
+    </div>
 </body>
 </html>

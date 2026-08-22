@@ -10,6 +10,7 @@ Lancer en local :
 """
 
 from pathlib import Path
+import csv
 import io
 import json
 import os
@@ -34,6 +35,9 @@ from traincker.settings import charger_parametres, sauvegarder_parametres
 from traincker.theme import css_accessibilite, CSS_THEME_CLAIR
 from traincker.journal import ajouter_entree, lire_journal, vider_journal
 from traincker.logs import lire_logs, vider_logs
+from traincker.db import est_configure, charger_dernier_horodatage
+from traincker.tz_utils import parser_horodatage_affichage
+from traincker.collector import CSV_PATH
 from traincker.analysis import (
     charger_donnees,
     stats_ponctualite_par_ligne,
@@ -66,6 +70,51 @@ client = NavitiaClient()
 SEUIL_RECHERCHE = 3  # nombre de caractères minimum avant de chercher une gare
 LECTURE_SEULE = os.getenv("TRAINCKER_READONLY", "").lower() in ("1", "true", "yes")
 
+# Même chemin que traincker/monitor.py, dupliqué ici pour ne pas importer
+# tout ce module (et ses dépendances schedule/discord-webhook) juste pour
+# une constante.
+ETAT_PATH = Path(__file__).resolve().parent.parent / "data" / "processed" / "alertes_envoyees.json"
+
+
+def _stats_rapides() -> dict:
+    """KPI du bandeau supérieur — même logique que le dashboard Streamlit :
+    Supabase en priorité, sinon le CSV local, avec repli propre si rien
+    n'est disponible."""
+    favoris = charger_favoris()
+    nb_actifs = sum(1 for t in favoris if t.actif)
+
+    derniere_collecte = "Aucune"
+    if est_configure():
+        dernier = charger_dernier_horodatage()
+        if dernier:
+            try:
+                derniere_collecte = parser_horodatage_affichage(dernier).strftime("%d/%m %H:%M")
+            except (KeyError, ValueError):
+                pass
+    elif CSV_PATH.exists():
+        try:
+            with open(CSV_PATH, encoding="utf-8") as f:
+                lignes = list(csv.DictReader(f))
+            if lignes:
+                dt = parser_horodatage_affichage(lignes[-1]["horodatage_collecte"])
+                derniere_collecte = dt.strftime("%d/%m %H:%M")
+        except (KeyError, ValueError, IndexError):
+            pass
+
+    nb_alertes = 0
+    if ETAT_PATH.exists():
+        try:
+            with open(ETAT_PATH, encoding="utf-8") as f:
+                nb_alertes = len(json.load(f))
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    return {
+        "trajets_actifs": nb_actifs,
+        "derniere_collecte": derniere_collecte,
+        "nb_alertes": nb_alertes,
+    }
+
 
 def _contexte_commun(page: str) -> dict:
     """Paramètres d'accessibilité/thème à injecter dans base.html, calculés
@@ -81,6 +130,7 @@ def _contexte_commun(page: str) -> dict:
             parametres.get("taille_police", "normale"),
         ),
         "logo_fichier": "logo-dark.png" if theme_clair else "logo-white.png",
+        "kpi": _stats_rapides(),
     }
 
 
