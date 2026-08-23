@@ -7,7 +7,7 @@ sont monkeypatchées pour ne jamais toucher aux vrais fichiers du projet
 
 import csv
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -254,7 +254,13 @@ def test_favoris_appels_api_paralleles(client, favoris_memoire, monkeypatch):
     assert duree < 0.6, f"trop lent ({duree:.2f}s) : les appels ne semblent pas parallelises"
 
 
-# --- Statistiques ---------------------------------------------------------
+def test_favoris_champs_recherche_ont_bien_name_q(client, favoris_memoire):
+    """Régression : ces champs n'avaient pas d'attribut name="q", donc
+    HTMX n'envoyait jamais le texte tapé au serveur — la recherche de
+    gare était silencieusement cassée malgré des tests backend qui
+    passaient tous (ils appelaient l'API directement avec q= explicite)."""
+    r = client.get("/favoris")
+    assert r.text.count('name="q"') == 2
 
 def test_stats_page_sans_donnees(client, monkeypatch):
     def _echec():
@@ -377,6 +383,99 @@ def test_lecture_seule_masque_les_formulaires(client, monkeypatch):
     monkeypatch.setattr(main, "LECTURE_SEULE", True)
     r = client.get("/apropos")
     assert r.text.count("désactivée en lecture seule") == 2
+
+
+# --- Mode démo ---------------------------------------------------------
+
+def test_demo_limite_le_nombre_de_trajets(client, favoris_memoire, monkeypatch):
+    monkeypatch.setattr(main, "MODE_DEMO", True)
+    maintenant = datetime.now(timezone.utc).isoformat()
+    favoris_memoire["trajets"] = [
+        Trajet(f"T{i}", f"A{i}", f"GA{i}", f"B{i}", f"GB{i}", cree_le=maintenant)
+        for i in range(5)
+    ]
+    r = client.post("/favoris/ajouter", data={
+        "nom": "Un de trop", "gare_depart_id": "X", "gare_arrivee_id": "Y",
+    })
+    assert r.status_code == 200
+    assert "Limite de 5 trajets ajoutés atteinte" in r.text
+    assert len(favoris_memoire["trajets"]) == 5
+
+
+def test_demo_horodate_les_nouveaux_trajets(client, favoris_memoire, monkeypatch):
+    monkeypatch.setattr(main, "MODE_DEMO", True)
+    client.post("/favoris/ajouter", data={
+        "nom": "Test démo", "gare_depart_id": "A", "gare_arrivee_id": "B",
+    })
+    assert favoris_memoire["trajets"][0].cree_le is not None
+
+
+def test_hors_demo_pas_de_limite_ni_horodatage(client, favoris_memoire, monkeypatch):
+    monkeypatch.setattr(main, "MODE_DEMO", False)
+    favoris_memoire["trajets"] = [
+        Trajet(f"T{i}", f"A{i}", f"GA{i}", f"B{i}", f"GB{i}") for i in range(5)
+    ]
+    r = client.post("/favoris/ajouter", data={
+        "nom": "Un de plus", "gare_depart_id": "X", "gare_arrivee_id": "Y",
+    })
+    assert len(favoris_memoire["trajets"]) == 6
+    assert favoris_memoire["trajets"][-1].cree_le is None
+
+
+def test_demo_expire_les_trajets_de_plus_d_une_heure(client, favoris_memoire, monkeypatch):
+    monkeypatch.setattr(main, "MODE_DEMO", True)
+    maintenant = datetime.now(timezone.utc)
+    favoris_memoire["trajets"] = [
+        Trajet("Ancien", "A", "GA", "B", "GB", cree_le=(maintenant - timedelta(hours=2)).isoformat()),
+        Trajet("Recent", "C", "GC", "D", "GD", cree_le=(maintenant - timedelta(minutes=10)).isoformat()),
+        Trajet("Reel", "E", "GE", "F", "GF"),  # trajet d'origine, sans cree_le -> jamais expire
+    ]
+    r = client.get("/favoris")
+    assert r.status_code == 200
+    assert "Ancien" not in r.text
+    assert "Recent" in r.text
+    assert "Reel" in r.text
+    assert len(favoris_memoire["trajets"]) == 2  # la purge a bien ete persistee
+
+
+def test_demo_bandeau_visible_sur_page_favoris(client, favoris_memoire, monkeypatch):
+    monkeypatch.setattr(main, "MODE_DEMO", True)
+    assert "Mode démo" in client.get("/favoris").text
+
+
+def test_hors_demo_pas_de_bandeau(client, favoris_memoire, monkeypatch):
+    monkeypatch.setattr(main, "MODE_DEMO", False)
+    assert "Mode démo" not in client.get("/favoris").text
+
+# --- Confidentialité en mode démo ---------------------------------------------------------
+
+def test_demo_masque_le_formulaire_alertes_et_email(client, parametres_memoire, monkeypatch):
+    monkeypatch.setattr(main, "MODE_DEMO", True)
+    parametres_memoire["valeurs"]["email_destinataire"] = "paul.secret@exemple.fr"
+    r = client.get("/apropos")
+    assert "paul.secret@exemple.fr" not in r.text
+    assert "non disponibles sur cette démo" in r.text
+
+
+def test_demo_bloque_la_sauvegarde_alertes_cote_serveur(client, parametres_memoire, monkeypatch):
+    monkeypatch.setattr(main, "MODE_DEMO", True)
+    r = client.post("/apropos/parametres/alertes", data={"email_destinataire": "hack@exemple.fr"})
+    assert "désactivée" in r.text
+    assert parametres_memoire["valeurs"]["email_destinataire"] != "hack@exemple.fr"
+
+
+def test_demo_les_trajets_permanents_ne_comptent_pas_dans_la_limite(client, favoris_memoire, monkeypatch):
+    monkeypatch.setattr(main, "MODE_DEMO", True)
+    # 5 trajets permanents (cree_le=None, comme les trajets de demonstration)
+    favoris_memoire["trajets"] = [
+        Trajet(f"Demo{i}", f"A{i}", f"GA{i}", f"B{i}", f"GB{i}") for i in range(5)
+    ]
+    r = client.post("/favoris/ajouter", data={
+        "nom": "Ajout visiteur", "gare_depart_id": "X", "gare_arrivee_id": "Y",
+    })
+    assert "Limite" not in r.text
+    assert len(favoris_memoire["trajets"]) == 6
+    assert favoris_memoire["trajets"][-1].cree_le is not None
 
 
 # --- Journal et logs ---------------------------------------------------------
