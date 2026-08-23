@@ -1,28 +1,50 @@
 {
   "trajets": [
-    {
-      "nom": "Domicile -> ESEO",
-      "gare_depart_id": "stop_area:SNCF:87713529",
-      "gare_depart_nom": "Nuits-Saint-Georges",
-      "gare_arrivee_id": "stop_area:SNCF:87713040",
-      "gare_arrivee_nom": "Dijon Ville",
-      "actif": true
-    },
-    {
-      "nom": "Domicile -> ESEO (retour)",
-      "gare_depart_id": "stop_area:SNCF:87713040",
-      "gare_depart_nom": "Dijon Ville",
-      "gare_arrivee_id": "stop_area:SNCF:87713529",
-      "gare_arrivee_nom": "Nuits-Saint-Georges",
-      "actif": true
-    },
-    {
-      "nom": "Test",
-      "gare_depart_id": "stop_area:SNCF:87384008",
-      "gare_depart_nom": "Paris Saint-Lazare (Paris)",
-      "gare_arrivee_id": "stop_area:SNCF:87713040",
-      "gare_arrivee_nom": "Dijon (Dijon)",
-      "actif": true
-    }
-  ]
+  {
+    "nom": "Dijon-Zurich HB",
+    "gare_depart_id": "stop_area:SNCF:87713040",
+    "gare_depart_nom": "Dijon (Dijon)",
+    "gare_arrivee_id": "stop_area:SNCF:85030007",
+    "gare_arrivee_nom": "Zürich HB (Zürich)",
+    "actif": true,
+    "cree_le": null
+  },
+  {
+    "nom": "Paris-Bruxelles",
+    "gare_depart_id": "stop_area:SNCF:87271007",
+    "gare_depart_nom": "Paris Nord (Paris)",
+    "gare_arrivee_id": "stop_area:SNCF:88140010",
+    "gare_arrivee_nom": "Bruxelles-Midi / Brussel-Zuid (Saint-Gilles - Sint-Gillis)",
+    "actif": true,
+    "cree_le": null
+  },
+  {
+    "nom": "Dijon-Lausanne",
+    "gare_depart_id": "stop_area:SNCF:87713040",
+    "gare_depart_nom": "Dijon (Dijon)",
+    "gare_arrivee_id": "stop_area:SNCF:85011205",
+    "gare_arrivee_nom": "Lausanne (Lausanne)",
+    "actif": true,
+    "cree_le": null
+  },
+  {
+    "nom": "Paris-Bordeaux",
+    "gare_depart_id": "stop_area:SNCF:87391003",
+    "gare_depart_nom": "Montparnasse - Hall 1 & 2 (Paris)",
+    "gare_arrivee_id": "stop_area:SNCF:87581009",
+    "gare_arrivee_nom": "Bordeaux Saint-Jean (Bordeaux)",
+    "actif": true,
+    "cree_le": null
+  },
+  {
+    "nom": "Marseille-Lyon",
+    "gare_depart_id": "stop_area:SNCF:87751008",
+    "gare_depart_nom": "Marseille Saint-Charles (Marseille)",
+    "gare_arrivee_id": "stop_area:SNCF:87723197",
+    "gare_arrivee_nom": "Lyon Part Dieu (Lyon)",
+    "actif": true,
+    "cree_le": null
+  }
+]
 }
+
