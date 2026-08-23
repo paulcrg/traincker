@@ -3,9 +3,24 @@ python-dotenv>=1.0.0
 pandas>=2.2.0
 numpy>=1.26.0
 matplotlib>=3.8.0
-streamlit>=1.37.0
 schedule>=1.2.0
 supabase>=2.0.0
 pytest>=8.0.0
 black>=24.0.0
 flake8>=7.0.0
+
+# Site web (traincker_web/, servi en production sur Render) : versions
+# figées volontairement. Les toutes dernières versions de starlette et
+# jinja2 ont un bug d'incompatibilité entre elles (cache interne des
+# templates), et fastapi>=0.116 ne fonctionne pas avec un starlette trop
+# ancien : cette combinaison précise est celle qui a été testée et validée.
+fastapi==0.115.6
+starlette==0.41.3
+uvicorn==0.32.1
+jinja2==3.1.4
+python-multipart>=0.0.9
+httpx<0.28
+
+# Streamlit n'est plus déployé en production (remplacé par traincker_web/
+# sur traincker.app) mais reste utile en local pour comparer avec
+# l'ancien dashboard : installe-le à part si besoin (pip install streamlit).

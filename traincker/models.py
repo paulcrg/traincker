@@ -26,6 +26,10 @@ class Trajet:
     gare_arrivee_id: str
     gare_arrivee_nom: str
     actif: bool = True
+    # Rempli uniquement pour les trajets ajoutés via le site en mode démo
+    # (TRAINCKER_DEMO) : sert à les expirer automatiquement après 1h, sans
+    # jamais toucher aux trajets réels (qui restent à None ici).
+    cree_le: Optional[str] = None
 
 
 @dataclass

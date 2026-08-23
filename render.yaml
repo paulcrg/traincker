@@ -1,6 +1,8 @@
-# Blueprint Render : un seul service (le mode démo a été retiré, le site
-# principal traincker.app sert lui-même de vitrine publique, en lecture
-# seule pour les trajets favoris — voir TRAINCKER_READONLY ci-dessous).
+# Blueprint Render : un seul service, désormais servi par traincker_web/
+# (FastAPI + HTMX) au lieu du dashboard Streamlit. Le site public tourne
+# en mode démo (TRAINCKER_DEMO) plutôt qu'en pure lecture seule : les
+# visiteurs peuvent ajouter des trajets, mais avec des limites (5 trajets
+# max, expiration automatique après 1h) — voir traincker_web/main.py.
 services:
   - type: web
     name: traincker
@@ -9,14 +11,12 @@ services:
     branch: main
     buildCommand: pip install -r requirements.txt
     startCommand: >
-      streamlit run traincker/dashboard.py
-      --server.port=$PORT --server.address=0.0.0.0
-      --server.headless=true --server.enableCORS=false
-      --server.enableXsrfProtection=false
+      uvicorn traincker_web.main:app
+      --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.4
-      - key: TRAINCKER_READONLY
+      - key: TRAINCKER_DEMO
         value: "1"
       - key: SNCF_API_KEY
         sync: false

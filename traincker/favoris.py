@@ -26,6 +26,7 @@ def sauvegarder_favoris(trajets: list[Trajet], path: Path = CONFIG_PATH) -> None
                 "gare_arrivee_id": t.gare_arrivee_id,
                 "gare_arrivee_nom": t.gare_arrivee_nom,
                 "actif": t.actif,
+                "cree_le": t.cree_le,
             }
             for t in trajets
         ]

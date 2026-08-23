@@ -16,6 +16,7 @@ import json
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta, timezone
 
 from fastapi import FastAPI, Request, Form, UploadFile, File
 from fastapi.responses import HTMLResponse, Response
@@ -82,6 +83,13 @@ client = NavitiaClient()
 SEUIL_RECHERCHE = 3  # nombre de caractères minimum avant de chercher une gare
 LECTURE_SEULE = os.getenv("TRAINCKER_READONLY", "").lower() in ("1", "true", "yes")
 
+# Mode démo publique : ajout de trajets autorisé, mais limité et
+# temporaire — pour ouvrir traincker.app au public sans laisser
+# n'importe qui accumuler des trajets indéfiniment.
+MODE_DEMO = os.getenv("TRAINCKER_DEMO", "").lower() in ("1", "true", "yes")
+DEMO_MAX_TRAJETS = 5
+DEMO_DUREE_VIE = timedelta(hours=1)
+
 # Même chemin que traincker/monitor.py, dupliqué ici pour ne pas importer
 # tout ce module (et ses dépendances schedule/discord-webhook) juste pour
 # une constante.
@@ -143,6 +151,8 @@ def _contexte_commun(page: str) -> dict:
         ),
         "logo_fichier": "logo-dark.png" if theme_clair else "logo-white.png",
         "kpi": _stats_rapides(),
+        "mode_demo": MODE_DEMO,
+        "demo_max_trajets": DEMO_MAX_TRAJETS,
     }
 
 
@@ -214,6 +224,34 @@ def departs(request: Request, gare_id: str = Form(...), gare_nom: str = Form("")
 
 # --- Favoris -----------------------------------------------------------
 
+def _charger_favoris_purge() -> list[Trajet]:
+    """Charge les favoris et, en mode démo, retire silencieusement ceux
+    ajoutés il y a plus d'une heure (uniquement les trajets créés via ce
+    mode — reconnaissables à leur champ cree_le — jamais les trajets
+    réels d'origine, qui n'ont pas ce champ)."""
+    favoris = charger_favoris()
+    if not MODE_DEMO:
+        return favoris
+
+    maintenant = datetime.now(timezone.utc)
+    restants = []
+    a_change = False
+    for trajet in favoris:
+        if trajet.cree_le:
+            try:
+                cree_le = datetime.fromisoformat(trajet.cree_le)
+            except ValueError:
+                cree_le = None
+            if cree_le and maintenant - cree_le > DEMO_DUREE_VIE:
+                a_change = True
+                continue
+        restants.append(trajet)
+
+    if a_change:
+        sauvegarder_favoris(restants)
+    return restants
+
+
 def _prochain_depart_pour(gare_id: str) -> dict | None:
     try:
         departs_bruts = client.get_next_departures(gare_id, count=1)
@@ -237,7 +275,7 @@ def _construire_contexte_favoris() -> list[dict]:
     d'un par un) pour ne pas payer N fois la latence réseau sur une page
     qui a plusieurs trajets actifs.
     """
-    favoris = charger_favoris()
+    favoris = _charger_favoris_purge()
     indices_actifs = [i for i, t in enumerate(favoris) if t.actif]
 
     prochains_departs = {}
@@ -320,7 +358,23 @@ def ajouter_favori(
     gare_arrivee_id: str = Form(...),
     gare_arrivee_nom: str = Form(""),
 ):
-    favoris = charger_favoris()
+    favoris = _charger_favoris_purge()
+    nb_trajets_temporaires = sum(1 for t in favoris if t.cree_le)
+
+    if MODE_DEMO and nb_trajets_temporaires >= DEMO_MAX_TRAJETS:
+        return render(
+            "_favoris_liste.html",
+            {
+                "request": request,
+                "favoris": _construire_contexte_favoris(),
+                "erreur_limite": (
+                    f"Limite de {DEMO_MAX_TRAJETS} trajets ajoutés atteinte en mode démo "
+                    "(les trajets de démonstration ne comptent pas) — supprime-en un ou "
+                    "attends qu'un trajet ajouté expire, au bout d'1h."
+                ),
+            },
+        )
+
     favoris.append(
         Trajet(
             nom=nom.strip(),
@@ -328,6 +382,7 @@ def ajouter_favori(
             gare_depart_nom=gare_depart_nom,
             gare_arrivee_id=gare_arrivee_id,
             gare_arrivee_nom=gare_arrivee_nom,
+            cree_le=datetime.now(timezone.utc).isoformat() if MODE_DEMO else None,
         )
     )
     sauvegarder_favoris(favoris)
@@ -560,10 +615,10 @@ def sauver_parametres_alertes(
     email_destinataire: str = Form(""),
     alertes_meteo: bool = Form(False),
 ):
-    if LECTURE_SEULE:
+    if LECTURE_SEULE or MODE_DEMO:
         return render(
             "_parametres_resultat.html",
-            {"request": request, "erreur": "Modification désactivée en lecture seule."},
+            {"request": request, "erreur": "Modification désactivée sur cette instance."},
         )
 
     parametres = charger_parametres()
