@@ -14,6 +14,8 @@ import csv
 import io
 import json
 import os
+import time
+from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import FastAPI, Request, Form, UploadFile, File
 from fastapi.responses import HTMLResponse, Response
@@ -60,6 +62,16 @@ BASE_DIR = Path(__file__).resolve().parent
 app = FastAPI(title="Traincker")
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
+
+
+def render(name: str, context: dict):
+    """Petit wrapper pour garder l'écriture `render("x.html", {"request":
+    request, ...})` partout dans ce fichier, tout en utilisant en interne
+    la nouvelle signature Starlette `TemplateResponse(request, name,
+    context)` qui évite le DeprecationWarning de l'ancienne forme."""
+    request = context["request"]
+    contexte_sans_request = {k: v for k, v in context.items() if k != "request"}
+    return templates.TemplateResponse(request, name, contexte_sans_request)
 templates.env.globals["icono"] = icono
 templates.env.globals["titre_section"] = titre_section
 
@@ -136,7 +148,7 @@ def _contexte_commun(page: str) -> dict:
 
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
-    return templates.TemplateResponse(
+    return render(
         "index.html", {"request": request, **_contexte_commun("recherche")}
     )
 
@@ -147,7 +159,7 @@ def suggestions_gares(request: Request, q: str = ""):
     à chaque frappe dans le champ de recherche, avec un seuil de 3 caractères)."""
     q = q.strip()
     if len(q) < SEUIL_RECHERCHE:
-        return templates.TemplateResponse(
+        return render(
             "_suggestions.html",
             {"request": request, "gares": [], "recherche_faite": False},
         )
@@ -157,7 +169,7 @@ def suggestions_gares(request: Request, q: str = ""):
     except NavitiaAPIError:
         gares = []
 
-    return templates.TemplateResponse(
+    return render(
         "_suggestions.html",
         {"request": request, "gares": gares, "recherche_faite": True},
     )
@@ -170,7 +182,7 @@ def departs(request: Request, gare_id: str = Form(...), gare_nom: str = Form("")
         departs_bruts = client.get_next_departures(gare_id)
         perturbations = client.get_disruptions(gare_id)
     except NavitiaAPIError as err:
-        return templates.TemplateResponse(
+        return render(
             "_erreur.html", {"request": request, "message": str(err)}
         )
 
@@ -189,7 +201,7 @@ def departs(request: Request, gare_id: str = Form(...), gare_nom: str = Form("")
         for d in departs_bruts
     ]
 
-    return templates.TemplateResponse(
+    return render(
         "_departs.html",
         {
             "request": request,
@@ -202,29 +214,44 @@ def departs(request: Request, gare_id: str = Form(...), gare_nom: str = Form("")
 
 # --- Favoris -----------------------------------------------------------
 
+def _prochain_depart_pour(gare_id: str) -> dict | None:
+    try:
+        departs_bruts = client.get_next_departures(gare_id, count=1)
+    except NavitiaAPIError:
+        return None
+    if not departs_bruts:
+        return None
+    d = departs_bruts[0]
+    return {
+        "heure": formater_heure(d["heure_prevue"]),
+        "compte_a_rebours": calculer_compte_a_rebours(d["heure_prevue"]),
+    }
+
+
 def _construire_contexte_favoris() -> list[dict]:
     """Charge les favoris et enrichit chacun avec le prochain départ (si
-    actif) et l'info "a déjà un trajet retour", pour le template."""
+    actif) et l'info "a déjà un trajet retour", pour le template.
+
+    Les appels API pour le prochain départ de chaque trajet actif sont
+    indépendants les uns des autres : on les lance en parallèle (au lieu
+    d'un par un) pour ne pas payer N fois la latence réseau sur une page
+    qui a plusieurs trajets actifs.
+    """
     favoris = charger_favoris()
+    indices_actifs = [i for i, t in enumerate(favoris) if t.actif]
+
+    prochains_departs = {}
+    if indices_actifs:
+        with ThreadPoolExecutor(max_workers=min(8, len(indices_actifs))) as executor:
+            futures = {
+                executor.submit(_prochain_depart_pour, favoris[i].gare_depart_id): i
+                for i in indices_actifs
+            }
+            for future in futures:
+                prochains_departs[futures[future]] = future.result()
+
     contexte = []
     for i, trajet in enumerate(favoris):
-        prochain_depart = None
-        if trajet.actif:
-            try:
-                departs_bruts = client.get_next_departures(
-                    trajet.gare_depart_id, count=1
-                )
-                if departs_bruts:
-                    d = departs_bruts[0]
-                    prochain_depart = {
-                        "heure": formater_heure(d["heure_prevue"]),
-                        "compte_a_rebours": calculer_compte_a_rebours(
-                            d["heure_prevue"]
-                        ),
-                    }
-            except NavitiaAPIError:
-                pass
-
         a_deja_retour = any(
             f.gare_depart_id == trajet.gare_arrivee_id
             and f.gare_arrivee_id == trajet.gare_depart_id
@@ -235,7 +262,7 @@ def _construire_contexte_favoris() -> list[dict]:
             {
                 "index": i,
                 "trajet": trajet,
-                "prochain_depart": prochain_depart,
+                "prochain_depart": prochains_departs.get(i),
                 "a_deja_retour": a_deja_retour,
             }
         )
@@ -244,7 +271,7 @@ def _construire_contexte_favoris() -> list[dict]:
 
 @app.get("/favoris", response_class=HTMLResponse)
 def page_favoris(request: Request):
-    return templates.TemplateResponse(
+    return render(
         "favoris.html",
         {
             "request": request,
@@ -256,7 +283,7 @@ def page_favoris(request: Request):
 
 @app.get("/favoris/liste", response_class=HTMLResponse)
 def fragment_favoris_liste(request: Request):
-    return templates.TemplateResponse(
+    return render(
         "_favoris_liste.html",
         {"request": request, "favoris": _construire_contexte_favoris()},
     )
@@ -268,7 +295,7 @@ def suggestions_gares_favoris(request: Request, champ: str, q: str = ""):
     d'ajout de favori (deux champs indépendants : depart / arrivee)."""
     q = q.strip()
     if len(q) < SEUIL_RECHERCHE:
-        return templates.TemplateResponse(
+        return render(
             "_favoris_suggestions.html",
             {"request": request, "gares": [], "recherche_faite": False, "champ": champ},
         )
@@ -278,7 +305,7 @@ def suggestions_gares_favoris(request: Request, champ: str, q: str = ""):
     except NavitiaAPIError:
         gares = []
 
-    return templates.TemplateResponse(
+    return render(
         "_favoris_suggestions.html",
         {"request": request, "gares": gares, "recherche_faite": True, "champ": champ},
     )
@@ -304,7 +331,7 @@ def ajouter_favori(
         )
     )
     sauvegarder_favoris(favoris)
-    return templates.TemplateResponse(
+    return render(
         "_favoris_liste.html",
         {"request": request, "favoris": _construire_contexte_favoris()},
     )
@@ -316,7 +343,7 @@ def toggle_favori(request: Request, index: int):
     if 0 <= index < len(favoris):
         favoris[index].actif = not favoris[index].actif
         sauvegarder_favoris(favoris)
-    return templates.TemplateResponse(
+    return render(
         "_favoris_liste.html",
         {"request": request, "favoris": _construire_contexte_favoris()},
     )
@@ -328,7 +355,7 @@ def supprimer_favori(request: Request, index: int):
     if 0 <= index < len(favoris):
         favoris.pop(index)
         sauvegarder_favoris(favoris)
-    return templates.TemplateResponse(
+    return render(
         "_favoris_liste.html",
         {"request": request, "favoris": _construire_contexte_favoris()},
     )
@@ -349,13 +376,35 @@ def creer_trajet_retour(request: Request, index: int):
             )
         )
         sauvegarder_favoris(favoris)
-    return templates.TemplateResponse(
+    return render(
         "_favoris_liste.html",
         {"request": request, "favoris": _construire_contexte_favoris()},
     )
 
 
 # --- Statistiques --------------------------------------------------------
+
+# Une vue de /stats déclenche jusqu'à 4 appels à charger_donnees() côté
+# navigateur (la page + les 3 <img> de graphiques). Sans cache, ça veut
+# dire 4 lectures Supabase (aller-retour réseau) ou 4 reparsing du CSV
+# pour un seul affichage. Les données ne changent qu'toutes les 15 min
+# (collecte GitHub Actions), donc un cache très court suffit largement.
+CACHE_DONNEES_TTL = 30  # secondes
+_cache_donnees = {"df": None, "expire": 0.0}
+
+
+def _charger_donnees_cache():
+    maintenant = time.time()
+    if _cache_donnees["df"] is None or maintenant >= _cache_donnees["expire"]:
+        _cache_donnees["df"] = charger_donnees()
+        _cache_donnees["expire"] = maintenant + CACHE_DONNEES_TTL
+    return _cache_donnees["df"]
+
+
+def _invalider_cache_donnees():
+    _cache_donnees["df"] = None
+    _cache_donnees["expire"] = 0.0
+
 
 TENDANCE_LIBELLES = {
     "amelioration": "En amélioration",
@@ -384,15 +433,15 @@ def page_stats(request: Request):
     contexte = {"request": request, **_contexte_commun("stats")}
 
     try:
-        df = charger_donnees()
+        df = _charger_donnees_cache()
     except FileNotFoundError as err:
         contexte["message_vide"] = str(err)
-        return templates.TemplateResponse("stats.html", contexte)
+        return render("stats.html", contexte)
 
     stats_ligne = stats_ponctualite_par_ligne(df)
     if stats_ligne.empty:
         contexte["message_vide"] = "Pas encore assez de données collectées pour afficher des statistiques."
-        return templates.TemplateResponse("stats.html", contexte)
+        return render("stats.html", contexte)
 
     stats_gare = stats_ponctualite_par_gare(df)
     pivot = heatmap_retards_heure_jour(df)
@@ -412,33 +461,33 @@ def page_stats(request: Request):
             "afficher_heatmap": not pivot.dropna(how="all").empty,
         }
     )
-    return templates.TemplateResponse("stats.html", contexte)
+    return render("stats.html", contexte)
 
 
 @app.get("/stats/graphique/retard-ligne.png")
 def graphique_retard_ligne():
-    df = charger_donnees()
+    df = _charger_donnees_cache()
     stats = stats_ponctualite_par_ligne(df)
     return _figure_vers_png(graphe_retard_par_ligne(stats))
 
 
 @app.get("/stats/graphique/tendance.png")
 def graphique_tendance():
-    df = charger_donnees()
+    df = _charger_donnees_cache()
     tendance = tendance_retard_dans_le_temps(df)
     return _figure_vers_png(graphe_tendance_temporelle(tendance))
 
 
 @app.get("/stats/graphique/heatmap.png")
 def graphique_heatmap():
-    df = charger_donnees()
+    df = _charger_donnees_cache()
     pivot = heatmap_retards_heure_jour(df)
     return _figure_vers_png(graphe_heatmap_retards(pivot))
 
 
 @app.get("/stats/export/csv")
 def export_stats_csv():
-    df = charger_donnees()
+    df = _charger_donnees_cache()
     stats_affichage = formater_stats_affichage(stats_ponctualite_par_ligne(df))
     csv_bytes = stats_affichage.to_csv().encode("utf-8")
     return Response(
@@ -450,7 +499,7 @@ def export_stats_csv():
 
 @app.get("/stats/export/pdf")
 def export_stats_pdf():
-    df = charger_donnees()
+    df = _charger_donnees_cache()
     stats = stats_ponctualite_par_ligne(df)
     stats_affichage = formater_stats_affichage(stats)
     tendance = tendance_retard_dans_le_temps(df)
@@ -488,7 +537,7 @@ def export_stats_pdf():
 
 @app.get("/apropos", response_class=HTMLResponse)
 def page_apropos(request: Request):
-    return templates.TemplateResponse(
+    return render(
         "apropos.html",
         {
             "request": request,
@@ -512,7 +561,7 @@ def sauver_parametres_alertes(
     alertes_meteo: bool = Form(False),
 ):
     if LECTURE_SEULE:
-        return templates.TemplateResponse(
+        return render(
             "_parametres_resultat.html",
             {"request": request, "erreur": "Modification désactivée en lecture seule."},
         )
@@ -529,7 +578,7 @@ def sauver_parametres_alertes(
         }
     )
     sauvegarder_parametres(parametres)
-    return templates.TemplateResponse(
+    return render(
         "_parametres_resultat.html", {"request": request, "succes": True}
     )
 
@@ -561,7 +610,7 @@ def sauver_parametres_accessibilite(
 def supprimer_journal(request: Request):
     if not LECTURE_SEULE:
         vider_journal()
-    return templates.TemplateResponse(
+    return render(
         "_journal_liste.html",
         {"request": request, "journal": lire_journal(20), "lecture_seule": LECTURE_SEULE},
     )
@@ -571,7 +620,7 @@ def supprimer_journal(request: Request):
 def supprimer_logs(request: Request):
     if not LECTURE_SEULE:
         vider_logs()
-    return templates.TemplateResponse(
+    return render(
         "_logs_liste.html",
         {"request": request, "logs": lire_logs(30), "lecture_seule": LECTURE_SEULE},
     )
@@ -607,7 +656,7 @@ def exporter_favoris_config():
 @app.post("/apropos/importer", response_class=HTMLResponse)
 async def importer_favoris_config(request: Request, fichier: UploadFile = File(...)):
     if LECTURE_SEULE:
-        return templates.TemplateResponse(
+        return render(
             "_import_resultat.html",
             {"request": request, "erreur": "Import désactivé en lecture seule."},
         )
@@ -617,11 +666,11 @@ async def importer_favoris_config(request: Request, fichier: UploadFile = File(.
         data = json.loads(contenu.decode("utf-8"))
         trajets = [Trajet(**tr) for tr in data.get("trajets", [])]
     except (json.JSONDecodeError, TypeError, KeyError, UnicodeDecodeError) as err:
-        return templates.TemplateResponse(
+        return render(
             "_import_resultat.html", {"request": request, "erreur": str(err)}
         )
 
     sauvegarder_favoris(trajets)
-    return templates.TemplateResponse(
+    return render(
         "_import_resultat.html", {"request": request, "succes": True, "nombre": len(trajets)}
     )
