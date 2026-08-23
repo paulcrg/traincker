@@ -40,12 +40,19 @@ def isoler_kpi(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def invalider_cache_donnees():
-    """Le cache TTL de charger_donnees() est un singleton au niveau du
-    module : sans ça, un test pourrait récupérer les données mises en
-    cache par le test précédent au lieu d'appeler son propre mock."""
+    """Le cache TTL de charger_donnees() (et désormais celui des PNG de
+    graphiques + celui du bandeau KPI) est un singleton au niveau du
+    module : sans ça, un test pourrait récupérer les données/images mises
+    en cache par le test précédent au lieu d'appeler son propre mock."""
     main._invalider_cache_donnees()
+    main._cache_graphiques.clear()
+    main._cache_kpi["valeur"] = None
+    main._cache_kpi["expire"] = 0.0
     yield
     main._invalider_cache_donnees()
+    main._cache_graphiques.clear()
+    main._cache_kpi["valeur"] = None
+    main._cache_kpi["expire"] = 0.0
 
 
 @pytest.fixture
@@ -262,6 +269,8 @@ def test_favoris_champs_recherche_ont_bien_name_q(client, favoris_memoire):
     r = client.get("/favoris")
     assert r.text.count('name="q"') == 2
 
+# --- Statistiques ---------------------------------------------------------
+
 def test_stats_page_sans_donnees(client, monkeypatch):
     def _echec():
         raise FileNotFoundError("aucune donnée")
@@ -318,6 +327,26 @@ def test_cache_donnees_evite_les_rechargements_redondants(client, monkeypatch, c
 
     assert compteur["appels"] == 1
 
+
+def test_cache_png_evite_de_regenerer_les_graphiques(client, monkeypatch, csv_donnees_test):
+    """Deux visites de /stats/graphique/retard-ligne.png rapprochées ne
+    doivent générer le graphique matplotlib qu'une seule fois."""
+    monkeypatch.setattr(main, "charger_donnees", lambda: charger_donnees_reel(path=csv_donnees_test))
+
+    compteur = {"appels": 0}
+    original = main.graphe_retard_par_ligne
+
+    def _compter(*args, **kwargs):
+        compteur["appels"] += 1
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(main, "graphe_retard_par_ligne", _compter)
+
+    client.get("/stats/graphique/retard-ligne.png")
+    client.get("/stats/graphique/retard-ligne.png")
+    client.get("/stats/graphique/retard-ligne.png")
+
+    assert compteur["appels"] == 1
 
 # --- En savoir plus : export/import config ---------------------------------------------------------
 

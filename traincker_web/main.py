@@ -96,7 +96,31 @@ DEMO_DUREE_VIE = timedelta(hours=1)
 ETAT_PATH = Path(__file__).resolve().parent.parent / "data" / "processed" / "alertes_envoyees.json"
 
 
+_cache_kpi = {"valeur": None, "expire": 0.0}
+KPI_CACHE_TTL = 30  # secondes
+
+
 def _stats_rapides() -> dict:
+    """KPI du bandeau supérieur — même logique que le dashboard Streamlit :
+    Supabase en priorité, sinon le CSV local, avec repli propre si rien
+    n'est disponible.
+
+    Mis en cache : sans ça, CHAQUE clic de navigation (Recherche, Favoris,
+    Stats, En savoir plus) déclenchait un aller-retour réseau vers Supabase
+    rien que pour afficher "Dernière collecte" — la cause principale de la
+    latence ressentie en changeant de page.
+    """
+    maintenant = time.time()
+    if _cache_kpi["valeur"] is not None and maintenant < _cache_kpi["expire"]:
+        return _cache_kpi["valeur"]
+
+    valeur = _calculer_stats_rapides()
+    _cache_kpi["valeur"] = valeur
+    _cache_kpi["expire"] = maintenant + KPI_CACHE_TTL
+    return valeur
+
+
+def _calculer_stats_rapides() -> dict:
     """KPI du bandeau supérieur — même logique que le dashboard Streamlit :
     Supabase en priorité, sinon le CSV local, avec repli propre si rien
     n'est disponible."""
@@ -475,12 +499,29 @@ def _dataframe_vers_lignes(df) -> list[dict]:
     return df.to_dict(orient="records")
 
 
-def _figure_vers_png(fig) -> Response:
+def _figure_vers_png(fig) -> bytes:
     buf = io.BytesIO()
     fig.savefig(buf, format="png", bbox_inches="tight", dpi=110, transparent=True)
     plt.close(fig)
-    buf.seek(0)
-    return Response(content=buf.getvalue(), media_type="image/png")
+    return buf.getvalue()
+
+
+_cache_graphiques: dict[str, tuple[float, bytes]] = {}
+
+
+def _graphique_png_cache(nom: str, generer) -> Response:
+    """Cache les PNG des graphiques (même TTL que les données) : générer
+    une figure matplotlib est coûteux en CPU, inutile de le refaire à
+    chaque fois que quelqu'un ouvre /stats si les données n'ont pas
+    changé depuis moins de 30s."""
+    maintenant = time.time()
+    entree = _cache_graphiques.get(nom)
+    if entree and maintenant < entree[0]:
+        return Response(content=entree[1], media_type="image/png")
+
+    contenu = _figure_vers_png(generer())
+    _cache_graphiques[nom] = (maintenant + CACHE_DONNEES_TTL, contenu)
+    return Response(content=contenu, media_type="image/png")
 
 
 @app.get("/stats", response_class=HTMLResponse)
@@ -521,23 +562,26 @@ def page_stats(request: Request):
 
 @app.get("/stats/graphique/retard-ligne.png")
 def graphique_retard_ligne():
-    df = _charger_donnees_cache()
-    stats = stats_ponctualite_par_ligne(df)
-    return _figure_vers_png(graphe_retard_par_ligne(stats))
+    def _generer():
+        df = _charger_donnees_cache()
+        return graphe_retard_par_ligne(stats_ponctualite_par_ligne(df))
+    return _graphique_png_cache("retard-ligne", _generer)
 
 
 @app.get("/stats/graphique/tendance.png")
 def graphique_tendance():
-    df = _charger_donnees_cache()
-    tendance = tendance_retard_dans_le_temps(df)
-    return _figure_vers_png(graphe_tendance_temporelle(tendance))
+    def _generer():
+        df = _charger_donnees_cache()
+        return graphe_tendance_temporelle(tendance_retard_dans_le_temps(df))
+    return _graphique_png_cache("tendance", _generer)
 
 
 @app.get("/stats/graphique/heatmap.png")
 def graphique_heatmap():
-    df = _charger_donnees_cache()
-    pivot = heatmap_retards_heure_jour(df)
-    return _figure_vers_png(graphe_heatmap_retards(pivot))
+    def _generer():
+        df = _charger_donnees_cache()
+        return graphe_heatmap_retards(heatmap_retards_heure_jour(df))
+    return _graphique_png_cache("heatmap", _generer)
 
 
 @app.get("/stats/export/csv")
