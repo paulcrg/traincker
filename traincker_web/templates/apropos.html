@@ -81,7 +81,9 @@
 
 <div class="tk-card">
     {{ titre_section('alert', "Paramètres d'alerte") | safe }}
-    {% if lecture_seule %}
+    {% if mode_demo %}
+    <p class="tk-hint">Réglages d'alerte non disponibles sur cette démo publique (informations personnelles du propriétaire du projet).</p>
+    {% elif lecture_seule %}
     <p class="tk-hint">Modification désactivée en lecture seule.</p>
     {% else %}
     <form hx-post="/apropos/parametres/alertes" hx-target="#parametres-alertes-resultat">

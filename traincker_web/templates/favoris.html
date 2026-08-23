@@ -1,6 +1,12 @@
 {% extends "base.html" %}
 
 {% block content %}
+{% if mode_demo %}
+<div class="alert" style="margin-bottom: 1.2rem;">
+    Mode démo : {{ demo_max_trajets }} trajets max, tout trajet ajouté ici expire automatiquement après 1h.
+</div>
+{% endif %}
+
 <div class="tk-card">
     {{ titre_section('star', 'Trajets favoris') | safe }}
     <div id="favoris-liste">
@@ -25,6 +31,7 @@
         <div class="search-wrap">
             <input
                 type="text"
+                name="q"
                 placeholder="ex: Nuits-Saint-Georges"
                 autocomplete="off"
                 hx-get="/favoris/gares/suggestions?champ=depart"
@@ -41,6 +48,7 @@
         <div class="search-wrap">
             <input
                 type="text"
+                name="q"
                 placeholder="ex: Dijon Ville"
                 autocomplete="off"
                 hx-get="/favoris/gares/suggestions?champ=arrivee"

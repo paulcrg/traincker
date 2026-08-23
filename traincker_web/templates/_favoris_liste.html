@@ -1,3 +1,6 @@
+{% if erreur_limite %}
+<p class="tk-confirm-text">{{ erreur_limite }}</p>
+{% endif %}
 {% if not favoris %}
 <p class="tk-empty">Aucun trajet favori pour l'instant.</p>
 {% else %}
@@ -6,7 +9,10 @@
     <div class="tk-favori-ligne">
         <span class="tk-dot {{ 'tk-dot-ok' if item.trajet.actif else 'tk-dot-alert' }}"></span>
         <div>
-            <div class="tk-favori-nom">{{ item.trajet.nom }}</div>
+            <div class="tk-favori-nom">
+                {{ item.trajet.nom }}
+                {% if item.trajet.cree_le %}<span class="badge">Démo · expire dans 1h max</span>{% endif %}
+            </div>
             <div class="tk-favori-trajet">{{ item.trajet.gare_depart_nom }} → {{ item.trajet.gare_arrivee_nom }}</div>
             {% if item.trajet.actif and item.prochain_depart %}
             <div class="tk-next-train">

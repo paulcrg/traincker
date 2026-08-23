@@ -223,8 +223,8 @@ label.tk-field-label { display: block; font-weight: 600; font-size: 0.9rem; marg
 .tk-tech-text { line-height: 1.7; font-size: 0.95rem; color: var(--text); }
 .tk-tech-text ul { padding-left: 1.2rem; margin: 0.4rem 0; }
 .tk-tech-text code {
-    background: rgba(255,255,255,0.08); padding: 1px 6px; border-radius: 6px;
-    font-family: 'Courier New', monospace; font-size: 0.85rem;
+    background: rgba(52, 209, 160, 0.12); color: var(--positive); padding: 1px 6px; border-radius: 6px;
+    font-family: 'Courier New', monospace; font-size: 0.85rem; font-weight: 700;
 }
 .tk-changelog-entry { padding: 0.6rem 0; }
 .tk-changelog-entry + .tk-changelog-entry { border-top: 1px solid var(--border); }
@@ -264,20 +264,6 @@ label.tk-field-label { display: block; font-weight: 600; font-size: 0.9rem; marg
 .suggestions-dropdown .liste-suggestions {
     margin: 0; box-shadow: 0 12px 32px rgba(0,0,0,0.5); max-height: 260px; overflow-y: auto;
 }
-
-/* --- Vue technique : liste de fichiers en badges --- */
-.tech-file-list { display: flex; flex-direction: column; }
-.tech-file-row {
-    display: flex; align-items: baseline; gap: 12px; padding: 0.55rem 0;
-    border-bottom: 1px solid var(--border); flex-wrap: wrap;
-}
-.tech-file-row:last-child { border-bottom: none; }
-.tech-file-badge {
-    flex-shrink: 0; background: var(--accent-soft); color: var(--accent);
-    padding: 3px 10px; border-radius: var(--radius-sm); font-family: 'Courier New', monospace;
-    font-size: 0.8rem; font-weight: 700;
-}
-.tech-file-desc { color: var(--text-muted); font-size: 0.88rem; line-height: 1.5; }
 
 /* --- Historique des évolutions : timeline verticale (flexbox, robuste) --- */
 .timeline { display: flex; flex-direction: column; }
