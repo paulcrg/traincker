@@ -3,21 +3,22 @@
 {% block content %}
 <div class="tk-card">
     {{ titre_section('search', 'Prochains départs') | safe }}
-    <p class="tk-hint">Recherche une gare (minimum 3 caractères)</p>
+    <p class="tk-hint">Recherche une gare (minimum 3 caractères), les suggestions apparaissent au fil de la frappe</p>
 
-    <input
-        type="text"
-        name="q"
-        placeholder="ex: Dijon"
-        autocomplete="off"
-        hx-get="/gares/suggestions"
-        hx-trigger="keyup changed delay:300ms"
-        hx-target="#suggestions"
-        hx-indicator="#spinner"
-    >
-    <span id="spinner" class="htmx-indicator">Recherche…</span>
-
-    <div id="suggestions"></div>
+    <div class="search-wrap">
+        <input
+            type="text"
+            name="q"
+            placeholder="ex: Dijon"
+            autocomplete="off"
+            hx-get="/gares/suggestions"
+            hx-trigger="keyup changed delay:150ms"
+            hx-target="#suggestions"
+            hx-indicator="#spinner"
+        >
+        <span id="spinner" class="htmx-indicator search-spinner">…</span>
+        <div id="suggestions" class="suggestions-dropdown"></div>
+    </div>
 </div>
 
 <div id="resultats"></div>

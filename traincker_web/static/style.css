@@ -251,3 +251,57 @@ label.tk-field-label { display: block; font-weight: 600; font-size: 0.9rem; marg
     .tk-favori-ligne { flex-wrap: wrap; }
     .tk-favori-actions { margin-left: 0; width: 100%; }
 }
+
+/* --- Recherche instantanée façon dropdown flottant --- */
+.search-wrap { position: relative; }
+.search-spinner {
+    position: absolute; top: 50%; right: 14px; transform: translateY(-50%);
+    color: var(--accent); font-weight: 700; letter-spacing: 1px;
+}
+.suggestions-dropdown {
+    position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 20;
+}
+.suggestions-dropdown .liste-suggestions {
+    margin: 0; box-shadow: 0 12px 32px rgba(0,0,0,0.5); max-height: 260px; overflow-y: auto;
+}
+
+/* --- Vue technique : liste de fichiers en badges --- */
+.tech-file-list { display: flex; flex-direction: column; }
+.tech-file-row {
+    display: flex; align-items: baseline; gap: 12px; padding: 0.55rem 0;
+    border-bottom: 1px solid var(--border); flex-wrap: wrap;
+}
+.tech-file-row:last-child { border-bottom: none; }
+.tech-file-badge {
+    flex-shrink: 0; background: var(--accent-soft); color: var(--accent);
+    padding: 3px 10px; border-radius: var(--radius-sm); font-family: 'Courier New', monospace;
+    font-size: 0.8rem; font-weight: 700;
+}
+.tech-file-desc { color: var(--text-muted); font-size: 0.88rem; line-height: 1.5; }
+
+/* --- Historique des évolutions : timeline verticale (flexbox, robuste) --- */
+.timeline { display: flex; flex-direction: column; }
+.timeline-entry { display: flex; gap: 14px; }
+.timeline-rail { display: flex; flex-direction: column; align-items: center; width: 12px; flex-shrink: 0; }
+.timeline-dot { width: 11px; height: 11px; border-radius: 50%; background: var(--accent); flex-shrink: 0; margin-top: 4px; box-shadow: 0 0 0 4px var(--accent-soft); }
+.timeline-line { flex: 1; width: 2px; background: var(--border); margin-top: 4px; min-height: 24px; }
+.timeline-content { flex: 1; padding-bottom: 1.4rem; }
+.timeline-entry:last-child .timeline-content { padding-bottom: 0; }
+.timeline-marker { margin-bottom: 3px; }
+.timeline-titre { font-weight: 700; color: var(--text); font-size: 0.98rem; }
+.timeline-desc { color: var(--text-muted); font-size: 0.88rem; margin-top: 2px; line-height: 1.5; }
+
+/* --- Sauvegarde de configuration : vrais boutons --- */
+.config-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 0.4rem; }
+.tk-btn-lg { padding: 0.7rem 1.4rem; font-size: 0.92rem; display: inline-flex; align-items: center; gap: 8px; }
+.file-upload-form { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.file-upload-form input[type="file"] {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+}
+.file-upload-btn { cursor: pointer; }
+.tk-btn:disabled, .btn:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+
+/* --- Feedback instantané sur tous les boutons pendant une requête HTMX --- */
+.tk-btn.htmx-request, .btn.htmx-request { opacity: 0.55; pointer-events: none; }
+form.htmx-request .tk-btn[type="submit"], form.htmx-request .btn[type="submit"] { opacity: 0.55; pointer-events: none; }

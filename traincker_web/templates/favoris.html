@@ -22,29 +22,33 @@
         <input type="text" id="nom" name="nom" placeholder="ex: Domicile -> ESEO" required>
 
         <label class="tk-field-label">Gare de départ</label>
-        <input
-            type="text"
-            placeholder="ex: Nuits-Saint-Georges"
-            autocomplete="off"
-            hx-get="/favoris/gares/suggestions?champ=depart"
-            hx-trigger="keyup changed delay:300ms"
-            hx-target="#suggestions-depart"
-        >
-        <div id="suggestions-depart"></div>
+        <div class="search-wrap">
+            <input
+                type="text"
+                placeholder="ex: Nuits-Saint-Georges"
+                autocomplete="off"
+                hx-get="/favoris/gares/suggestions?champ=depart"
+                hx-trigger="keyup changed delay:150ms"
+                hx-target="#suggestions-depart"
+            >
+            <div id="suggestions-depart" class="suggestions-dropdown"></div>
+        </div>
         <div id="selection-depart" class="tk-selection"></div>
         <input type="hidden" id="gare_depart_id" name="gare_depart_id" required>
         <input type="hidden" id="gare_depart_nom" name="gare_depart_nom">
 
         <label class="tk-field-label">Gare d'arrivée</label>
-        <input
-            type="text"
-            placeholder="ex: Dijon Ville"
-            autocomplete="off"
-            hx-get="/favoris/gares/suggestions?champ=arrivee"
-            hx-trigger="keyup changed delay:300ms"
-            hx-target="#suggestions-arrivee"
-        >
-        <div id="suggestions-arrivee"></div>
+        <div class="search-wrap">
+            <input
+                type="text"
+                placeholder="ex: Dijon Ville"
+                autocomplete="off"
+                hx-get="/favoris/gares/suggestions?champ=arrivee"
+                hx-trigger="keyup changed delay:150ms"
+                hx-target="#suggestions-arrivee"
+            >
+            <div id="suggestions-arrivee" class="suggestions-dropdown"></div>
+        </div>
         <div id="selection-arrivee" class="tk-selection"></div>
         <input type="hidden" id="gare_arrivee_id" name="gare_arrivee_id" required>
         <input type="hidden" id="gare_arrivee_nom" name="gare_arrivee_nom">

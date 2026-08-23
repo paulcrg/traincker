@@ -27,40 +27,56 @@
 
 <div class="tk-card">
     {{ titre_section('clock', 'Historique des évolutions') | safe }}
-    {% for entree in changelog %}
-    <div class="tk-changelog-entry">
-        <div class="tk-changelog-titre">{{ entree.titre }}</div>
-        <div class="tk-changelog-desc">{{ entree.description }}</div>
+    <div class="timeline">
+        {% for entree in changelog %}
+        <div class="timeline-entry">
+            <div class="timeline-rail">
+                <span class="timeline-dot"></span>
+                {% if not loop.last %}<span class="timeline-line"></span>{% endif %}
+            </div>
+            <div class="timeline-content">
+                {% if loop.first %}<span class="badge">Récent</span>{% endif %}
+                <div class="timeline-titre">{{ entree.titre }}</div>
+                <div class="timeline-desc">{{ entree.description }}</div>
+            </div>
+        </div>
+        {% endfor %}
     </div>
-    {% endfor %}
 </div>
 
 <div class="tk-card">
     {{ titre_section('download', 'Sauvegarde de la configuration') | safe }}
     <p class="tk-hint">Exporte tes trajets favoris dans un fichier, ou restaure une sauvegarde précédente.</p>
 
-    <div class="tk-btn-row">
-        <a class="tk-btn" href="/apropos/export">Exporter mes trajets</a>
+    <div class="config-actions">
+        <a class="tk-btn tk-btn-lg" href="/apropos/export">
+            {{ icono('download', 16) | safe }} Exporter mes trajets
+        </a>
+
+        {% if not lecture_seule %}
+        <form
+            hx-post="/apropos/importer"
+            hx-target="#import-resultat"
+            hx-encoding="multipart/form-data"
+            hx-confirm="Remplacer tous tes trajets favoris actuels par le contenu de ce fichier ?"
+            class="file-upload-form"
+        >
+            <label for="fichier-import" class="tk-btn tk-btn-lg file-upload-btn">
+                {{ icono('plus', 16) | safe }} <span id="fichier-import-label">Choisir un fichier…</span>
+            </label>
+            <input
+                type="file" id="fichier-import" name="fichier" accept="application/json" required
+                onchange="document.getElementById('fichier-import-label').textContent = this.files[0] ? this.files[0].name : 'Choisir un fichier…'; document.getElementById('btn-importer').disabled = !this.files.length;"
+            >
+            <button type="submit" id="btn-importer" class="tk-btn tk-btn-primary tk-btn-lg" disabled>Importer</button>
+        </form>
+        {% endif %}
     </div>
 
-    {% if not lecture_seule %}
-    <form
-        hx-post="/apropos/importer"
-        hx-target="#import-resultat"
-        hx-encoding="multipart/form-data"
-        hx-confirm="Remplacer tous tes trajets favoris actuels par le contenu de ce fichier ?"
-        style="margin-top: 1.2rem;"
-    >
-        <label class="tk-field-label" for="fichier-import">Restaurer depuis un fichier</label>
-        <input type="file" id="fichier-import" name="fichier" accept="application/json" required>
-        <div class="tk-btn-row">
-            <button type="submit" class="tk-btn tk-btn-primary">Importer</button>
-        </div>
-    </form>
-    <div id="import-resultat"></div>
-    {% else %}
+    {% if lecture_seule %}
     <p class="tk-hint">Export/import désactivés en lecture seule.</p>
     {% endif %}
+    <div id="import-resultat"></div>
 </div>
 
 <div class="tk-card">
@@ -106,7 +122,12 @@
     {% if lecture_seule %}
     <p class="tk-hint">Modification désactivée en lecture seule.</p>
     {% else %}
-    <form hx-post="/apropos/parametres/accessibilite" hx-swap="none" hx-on::after-request="window.location.reload()">
+    <form
+        hx-post="/apropos/parametres/accessibilite"
+        hx-trigger="change"
+        hx-swap="none"
+        hx-on::after-request="window.location.reload()"
+    >
         <label class="tk-checkbox-row">
             <input type="checkbox" name="contraste_eleve" {{ 'checked' if parametres.contraste_eleve }}>
             Contraste élevé
@@ -132,11 +153,7 @@
             <option value="no" {{ 'selected' if parametres.langue == 'no' }}>Norsk</option>
             <option value="sv" {{ 'selected' if parametres.langue == 'sv' }}>Svenska</option>
         </select>
-        <p class="tk-hint">Le choix de langue est enregistré, mais l'interface FastAPI reste en français pour l'instant (seul le dashboard Streamlit est déjà traduit).</p>
-
-        <div class="tk-btn-row">
-            <button type="submit" class="tk-btn tk-btn-primary">Appliquer</button>
-        </div>
+        <p class="tk-hint">Ces réglages s'appliquent immédiatement. Le choix de langue est enregistré, mais l'interface FastAPI reste en français pour l'instant (seul le dashboard Streamlit est déjà traduit).</p>
     </form>
     {% endif %}
 </div>
