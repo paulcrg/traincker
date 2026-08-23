@@ -41,18 +41,21 @@ def isoler_kpi(monkeypatch):
 @pytest.fixture(autouse=True)
 def invalider_cache_donnees():
     """Le cache TTL de charger_donnees() (et désormais celui des PNG de
-    graphiques + celui du bandeau KPI) est un singleton au niveau du
-    module : sans ça, un test pourrait récupérer les données/images mises
-    en cache par le test précédent au lieu d'appeler son propre mock."""
+    graphiques, du bandeau KPI, et du prochain départ des favoris) est un
+    singleton au niveau du module : sans ça, un test pourrait récupérer
+    les données/images mises en cache par le test précédent au lieu
+    d'appeler son propre mock."""
     main._invalider_cache_donnees()
     main._cache_graphiques.clear()
     main._cache_kpi["valeur"] = None
     main._cache_kpi["expire"] = 0.0
+    main._cache_prochain_depart.clear()
     yield
     main._invalider_cache_donnees()
     main._cache_graphiques.clear()
     main._cache_kpi["valeur"] = None
     main._cache_kpi["expire"] = 0.0
+    main._cache_prochain_depart.clear()
 
 
 @pytest.fixture
@@ -259,6 +262,27 @@ def test_favoris_appels_api_paralleles(client, favoris_memoire, monkeypatch):
     assert r.status_code == 200
     # 5 appels sequentiels auraient pris ~1s ; en parallele, largement sous 0.6s
     assert duree < 0.6, f"trop lent ({duree:.2f}s) : les appels ne semblent pas parallelises"
+
+
+def test_favoris_prochain_depart_mis_en_cache(client, favoris_memoire, monkeypatch):
+    """Ouvrir la page Favoris plusieurs fois de suite ne doit PAS
+    re-solliciter l'API SNCF à chaque fois pour le même trajet — sinon
+    c'est la principale source de latence perçue sur cette page."""
+    favoris_memoire["trajets"] = [Trajet("T", "A", "GareA", "B", "GareB")]
+
+    compteur = {"appels": 0}
+
+    def _compter(gare_id, count=1):
+        compteur["appels"] += 1
+        return [{"heure_prevue": "20260701T080000"}]
+
+    monkeypatch.setattr(main.client, "get_next_departures", _compter)
+
+    client.get("/favoris")
+    client.get("/favoris")
+    client.get("/favoris")
+
+    assert compteur["appels"] == 1
 
 
 def test_favoris_champs_recherche_ont_bien_name_q(client, favoris_memoire):

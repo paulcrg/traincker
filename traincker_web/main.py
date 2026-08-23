@@ -276,18 +276,30 @@ def _charger_favoris_purge() -> list[Trajet]:
     return restants
 
 
+PROCHAIN_DEPART_CACHE_TTL = 20  # secondes : assez court pour rester à jour, assez long pour éviter de re-solliciter l'API SNCF à chaque clic
+_cache_prochain_depart: dict[str, tuple[float, dict | None]] = {}
+
+
 def _prochain_depart_pour(gare_id: str) -> dict | None:
+    maintenant = time.time()
+    entree = _cache_prochain_depart.get(gare_id)
+    if entree and maintenant < entree[0]:
+        return entree[1]
+
     try:
         departs_bruts = client.get_next_departures(gare_id, count=1)
+        resultat = None
+        if departs_bruts:
+            d = departs_bruts[0]
+            resultat = {
+                "heure": formater_heure(d["heure_prevue"]),
+                "compte_a_rebours": calculer_compte_a_rebours(d["heure_prevue"]),
+            }
     except NavitiaAPIError:
-        return None
-    if not departs_bruts:
-        return None
-    d = departs_bruts[0]
-    return {
-        "heure": formater_heure(d["heure_prevue"]),
-        "compte_a_rebours": calculer_compte_a_rebours(d["heure_prevue"]),
-    }
+        resultat = None
+
+    _cache_prochain_depart[gare_id] = (maintenant + PROCHAIN_DEPART_CACHE_TTL, resultat)
+    return resultat
 
 
 def _construire_contexte_favoris() -> list[dict]:
