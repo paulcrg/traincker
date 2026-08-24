@@ -89,7 +89,10 @@ class NavitiaClient:
 
             departures.append(
                 {
-                    "ligne": humaniser_ligne(info.get("label") or info.get("code")),
+                    "ligne": humaniser_ligne(
+                        info.get("label") or info.get("code"),
+                        info.get("commercial_mode"),
+                    ),
                     "direction": simplifier_nom_gare(info.get("direction")),
                     "heure_theorique": stop_dt.get("base_departure_date_time"),
                     "heure_prevue": stop_dt.get("departure_date_time"),

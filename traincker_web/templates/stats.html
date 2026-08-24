@@ -23,6 +23,7 @@
         </div>
     </div>
 
+    <div class="tk-table-scroll">
     <table class="tk-table">
         <thead>
             <tr>{% for col in colonnes_ligne %}<th>{{ col }}</th>{% endfor %}</tr>
@@ -39,6 +40,7 @@
             {% endfor %}
         </tbody>
     </table>
+    </div>
     <p class="tk-legend">Ponctualité : part des trains arrivés avec moins de 5 minutes de retard.</p>
 
     <h3>Retard moyen par ligne</h3>
@@ -48,6 +50,7 @@
     <img class="tk-chart" src="/stats/graphique/tendance.png" alt="Évolution du retard moyen">
 
     <h3>Fiabilité par gare</h3>
+    <div class="tk-table-scroll">
     <table class="tk-table">
         <thead>
             <tr>{% for col in colonnes_gare %}<th>{{ col }}</th>{% endfor %}</tr>
@@ -64,6 +67,7 @@
             {% endfor %}
         </tbody>
     </table>
+    </div>
 
     {% if afficher_heatmap %}
     <h3>Répartition des retards (jour / heure)</h3>

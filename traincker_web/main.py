@@ -160,18 +160,50 @@ def _calculer_stats_rapides() -> dict:
     }
 
 
-def _contexte_commun(page: str) -> dict:
-    """Paramètres d'accessibilité/thème à injecter dans base.html, calculés
-    à chaque requête (pas de session : tout vient de config/parametres.json)."""
-    parametres = charger_parametres()
-    theme_clair = parametres.get("theme_clair", False)
+COOKIE_ACCESSIBILITE = "traincker_accessibilite"
+ACCESSIBILITE_DEFAUTS = {
+    "contraste_eleve": False,
+    "taille_police": "normale",
+    "theme_clair": False,
+    "langue": "fr",
+}
+
+
+def _lire_accessibilite(request: Request) -> dict:
+    """Préférences d'accessibilité propres à CE visiteur (cookie), pas
+    partagées : sans ça, un visiteur qui passe en thème clair changeait
+    l'affichage de tout le monde, y compris des vrais réglages perso."""
+    brut = request.cookies.get(COOKIE_ACCESSIBILITE)
+    if not brut:
+        return ACCESSIBILITE_DEFAUTS.copy()
+    try:
+        valeurs = json.loads(brut)
+    except json.JSONDecodeError:
+        return ACCESSIBILITE_DEFAUTS.copy()
+    return {**ACCESSIBILITE_DEFAUTS, **{k: v for k, v in valeurs.items() if k in ACCESSIBILITE_DEFAUTS}}
+
+
+def _ecrire_accessibilite(response: Response, valeurs: dict) -> None:
+    response.set_cookie(
+        COOKIE_ACCESSIBILITE,
+        json.dumps(valeurs),
+        max_age=365 * 24 * 3600,
+        samesite="lax",
+    )
+
+
+def _contexte_commun(request: Request, page: str) -> dict:
+    """Paramètres d'accessibilité (par visiteur, cookie) + KPI à injecter
+    dans base.html, calculés à chaque requête."""
+    accessibilite = _lire_accessibilite(request)
+    theme_clair = accessibilite["theme_clair"]
     return {
         "page": page,
         "lecture_seule": LECTURE_SEULE,
         "css_theme_clair": CSS_THEME_CLAIR if theme_clair else "",
         "css_accessibilite": css_accessibilite(
-            parametres.get("contraste_eleve", False),
-            parametres.get("taille_police", "normale"),
+            accessibilite["contraste_eleve"],
+            accessibilite["taille_police"],
         ),
         "logo_fichier": "logo-dark.png" if theme_clair else "logo-white.png",
         "kpi": _stats_rapides(),
@@ -183,7 +215,7 @@ def _contexte_commun(page: str) -> dict:
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
     return render(
-        "index.html", {"request": request, **_contexte_commun("recherche")}
+        "index.html", {"request": request, **_contexte_commun(request, "recherche")}
     )
 
 
@@ -350,7 +382,7 @@ def page_favoris(request: Request):
         {
             "request": request,
             "favoris": _construire_contexte_favoris(),
-            **_contexte_commun("favoris"),
+            **_contexte_commun(request, "favoris"),
         },
     )
 
@@ -454,7 +486,7 @@ def supprimer_favori(request: Request, index: int):
 
 @app.post("/favoris/{index}/retour", response_class=HTMLResponse)
 def creer_trajet_retour(request: Request, index: int):
-    favoris = charger_favoris()
+    favoris = _charger_favoris_purge()
     if 0 <= index < len(favoris):
         trajet = favoris[index]
         favoris.append(
@@ -464,6 +496,7 @@ def creer_trajet_retour(request: Request, index: int):
                 gare_depart_nom=trajet.gare_arrivee_nom,
                 gare_arrivee_id=trajet.gare_depart_id,
                 gare_arrivee_nom=trajet.gare_depart_nom,
+                cree_le=datetime.now(timezone.utc).isoformat() if MODE_DEMO else None,
             )
         )
         sauvegarder_favoris(favoris)
@@ -538,7 +571,7 @@ def _graphique_png_cache(nom: str, generer) -> Response:
 
 @app.get("/stats", response_class=HTMLResponse)
 def page_stats(request: Request):
-    contexte = {"request": request, **_contexte_commun("stats")}
+    contexte = {"request": request, **_contexte_commun(request, "stats")}
 
     try:
         df = _charger_donnees_cache()
@@ -648,15 +681,16 @@ def export_stats_pdf():
 
 @app.get("/apropos", response_class=HTMLResponse)
 def page_apropos(request: Request):
+    parametres = {**charger_parametres(), **_lire_accessibilite(request)}
     return render(
         "apropos.html",
         {
             "request": request,
             "changelog": CHANGELOG,
-            "parametres": charger_parametres(),
+            "parametres": parametres,
             "journal": lire_journal(20),
             "logs": lire_logs(30),
-            **_contexte_commun("apropos"),
+            **_contexte_commun(request, "apropos"),
         },
     )
 
@@ -701,20 +735,17 @@ def sauver_parametres_accessibilite(
     theme_clair: bool = Form(False),
     langue: str = Form("fr"),
 ):
-    if LECTURE_SEULE:
-        return Response(status_code=403)
-
-    parametres = charger_parametres()
-    parametres.update(
+    reponse = Response(status_code=204)
+    _ecrire_accessibilite(
+        reponse,
         {
             "contraste_eleve": contraste_eleve,
             "taille_police": taille_police,
             "theme_clair": theme_clair,
             "langue": langue,
-        }
+        },
     )
-    sauvegarder_parametres(parametres)
-    return Response(status_code=204)
+    return reponse
 
 
 @app.delete("/apropos/journal", response_class=HTMLResponse)

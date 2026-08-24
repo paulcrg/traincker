@@ -65,7 +65,7 @@ NOMS_LIGNES_LETTRES = {
 }
 
 
-def humaniser_ligne(code: str) -> str:
+def humaniser_ligne(code: str, commercial_mode: str | None = None) -> str:
     """
     Transforme un code de ligne/mission brut en nom lisible :
     - lettre seule (ex: "E", "L") -> "RER E", "Transilien L"
@@ -74,17 +74,31 @@ def humaniser_ligne(code: str) -> str:
 
     Les libellés déjà complets (ex: "TER 8351", "TGV INOUI 6201") ne
     correspondent à aucun de ces motifs et restent inchangés.
+
+    `commercial_mode` (ex: "RER", "Transilien", "TER", "TGV INOUI", tel que
+    renvoyé par l'API) sert de garde-fou : sans lui, on ne peut pas savoir
+    si "P20" est un vrai Transilien parisien ou une mission TER en région
+    (ex: à Dijon) qui utilise coïncidemment le même format de code. Si
+    fourni et que ce n'est manifestement pas un RER/Transilien, on ne
+    relabellise pas.
     """
     if not code:
         return code
 
     code_nettoye = code.strip()
 
+    mode = (commercial_mode or "").strip().lower()
+    est_rer_ou_transilien = mode == "" or "rer" in mode or "transilien" in mode
+
     if re.fullmatch(r"[A-Z]", code_nettoye):
-        return NOMS_LIGNES_LETTRES.get(code_nettoye, code)
+        if est_rer_ou_transilien:
+            return NOMS_LIGNES_LETTRES.get(code_nettoye, code)
+        return code
 
     match = re.fullmatch(r"([A-Z])\d{1,3}[A-Z]?\+?", code_nettoye)
     if match:
-        return NOMS_LIGNES_LETTRES.get(match.group(1), code)
+        if est_rer_ou_transilien:
+            return NOMS_LIGNES_LETTRES.get(match.group(1), code)
+        return code
 
     return code

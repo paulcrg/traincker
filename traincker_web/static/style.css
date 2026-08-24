@@ -58,7 +58,7 @@ html, body {
 
 h1, h2, h3 { font-weight: 700; letter-spacing: -0.02em; color: var(--text); margin: 0 0 0.6rem; }
 
-.tk-page { position: relative; z-index: 1; max-width: 1180px; width: 100%; margin: 0 auto; padding: 0 2rem 3rem; }
+.tk-page { position: relative; z-index: 1; max-width: 1180px; width: 100%; margin: 0 auto; padding: 0 2rem 3rem; text-align: center; }
 
 .tk-logo-wrap { text-align: center; margin: 2.2rem 0 0.3rem; }
 .tk-caption { text-align: center; color: var(--text-muted); margin: 0 0 1.6rem; font-size: 0.95rem; }
@@ -92,7 +92,7 @@ h1, h2, h3 { font-weight: 700; letter-spacing: -0.02em; color: var(--text); marg
 .nav-link:hover { color: var(--text); background: var(--surface-hover); }
 .nav-link.active { color: var(--text); background: var(--accent-soft); }
 
-.container { position: relative; z-index: 1; max-width: 760px; margin: 0 auto; animation: tk-fade-in 0.4s ease; }
+.container { position: relative; z-index: 1; max-width: 760px; margin: 0 auto; text-align: left; animation: tk-fade-in 0.4s ease; }
 @keyframes tk-fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
 /* --- Cartes --- */
@@ -250,7 +250,21 @@ label.tk-field-label { display: block; font-weight: 600; font-size: 0.9rem; marg
     .card, .tk-card { padding: 1.2rem 1.1rem; }
     .tk-favori-ligne { flex-wrap: wrap; }
     .tk-favori-actions { margin-left: 0; width: 100%; }
+    .tk-favori-actions .tk-btn { flex: 1; }
+    .config-actions { flex-direction: column; align-items: stretch; }
+    .config-actions .tk-btn, .file-upload-form { width: 100%; }
+    .file-upload-form { flex-direction: column; align-items: stretch; }
+    .tk-btn-row { flex-direction: column; }
+    .tk-btn-row .tk-btn { width: 100%; text-align: center; }
+    .timeline-content { min-width: 0; }
+    .timeline-titre, .timeline-desc { word-break: break-word; }
 }
+
+/* Les tableaux (stats) débordent facilement sur petit écran : on scroll
+   horizontalement DANS le tableau plutôt que de laisser la page entière
+   déborder. */
+.tk-table-scroll { overflow-x: auto; margin: 0 0 0.4rem; -webkit-overflow-scrolling: touch; }
+.tk-table-scroll .tk-table { min-width: 480px; margin: 0.6rem 0 0; }
 
 /* --- Recherche instantanée façon dropdown flottant --- */
 .search-wrap { position: relative; }

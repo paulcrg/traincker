@@ -58,3 +58,17 @@ def test_humaniser_ligne_deja_complete_inchangee():
 def test_humaniser_ligne_vide():
     assert humaniser_ligne("") == ""
     assert humaniser_ligne(None) is None
+
+
+def test_humaniser_ligne_ne_force_pas_transilien_hors_paris():
+    """Régression : un TER en région (ex: Dijon) peut avoir un code au
+    même format qu'un Transilien parisien (ex: "P20") sans en être un.
+    Avec le vrai commercial_mode de l'API, on ne doit plus le relabelliser."""
+    assert humaniser_ligne("P20", commercial_mode="TER") == "P20"
+    assert humaniser_ligne("A5", commercial_mode="TER") == "A5"
+    assert humaniser_ligne("E", commercial_mode="TER") == "E"
+
+
+def test_humaniser_ligne_respecte_rer_et_transilien_explicites():
+    assert humaniser_ligne("P20", commercial_mode="Transilien") == "Transilien P"
+    assert humaniser_ligne("A5", commercial_mode="RER") == "RER A"

@@ -26,7 +26,7 @@ from traincker.api_client import NavitiaClient, NavitiaAPIError
 TRAJETS_DEMO = [
     ("Dijon-Zurich HB", "Dijon", "Zürich HB"),
     ("Paris-Bruxelles", "Paris Nord", "Bruxelles Midi"),
-    ("Dijon-Lausanne", "Dijon", "Lausanne"),
+    ("Montpellier-Luxembourg", "Montpellier Saint-Roch", "Luxembourg"),
     ("Paris-Bordeaux", "Paris Montparnasse", "Bordeaux Saint-Jean"),
     ("Marseille-Lyon", "Marseille Saint-Charles", "Lyon Part-Dieu"),
 ]

@@ -3,7 +3,21 @@
 {% block content %}
 <div class="tk-card">
     {{ titre_section('pin', 'En savoir plus') | safe }}
-    <p>À compléter.</p>
+    <div class="tk-tech-text">
+        <p>Tous les jours, je prends le train pour faire le trajet entre la maison de mes parents et mon école d'ingénieur. Et régulièrement, mon train a du retard — sans que je le sache à l'avance. Aucun moyen de le savoir autrement qu'en vérifiant l'appli SNCF à la main ou en arrivant sur le quai : pas de notification, rien.</p>
+        <p>C'est ce qui m'a donné l'idée de <strong>Traincker</strong> : une appli qui surveille mes trajets favoris en continu et m'alerte automatiquement (Discord, email) dès qu'une perturbation apparaît.</p>
+        <p>Au fil du développement, le projet s'est étoffé :</p>
+        <ul>
+            <li>recherche de gare avec départs en temps réel</li>
+            <li>gestion de plusieurs trajets favoris, avec surveillance automatique en arrière-plan</li>
+            <li>alertes Discord/email configurables (heures de silence, canaux)</li>
+            <li>historique des trajets et statistiques de ponctualité (retard moyen, taux de ponctualité, tendance)</li>
+            <li>visualisations (retard par ligne, par gare, évolution dans le temps)</li>
+            <li>accessibilité (contraste élevé, taille de texte, thème clair)</li>
+            <li>interface rapide en FastAPI + HTMX, sans rechargement de page</li>
+        </ul>
+        <p>Ce projet me sert avant tout à progresser en Python (data, API, web) — mais surtout, je m'en sers vraiment, tous les jours, pour aller en cours.</p>
+    </div>
 </div>
 
 <div class="tk-card">
@@ -121,9 +135,7 @@
 
 <div class="tk-card">
     {{ titre_section('shield', 'Accessibilité') | safe }}
-    {% if lecture_seule %}
-    <p class="tk-hint">Modification désactivée en lecture seule.</p>
-    {% else %}
+    <p class="tk-hint">Ces réglages ne concernent que ton propre navigateur (via un cookie) — ils ne changent rien pour les autres visiteurs.</p>
     <form
         hx-post="/apropos/parametres/accessibilite"
         hx-trigger="change"
@@ -155,9 +167,8 @@
             <option value="no" {{ 'selected' if parametres.langue == 'no' }}>Norsk</option>
             <option value="sv" {{ 'selected' if parametres.langue == 'sv' }}>Svenska</option>
         </select>
-        <p class="tk-hint">Ces réglages s'appliquent immédiatement. Le choix de langue est enregistré, mais l'interface FastAPI reste en français pour l'instant (seul le dashboard Streamlit est déjà traduit).</p>
+        <p class="tk-hint">Le choix de langue est enregistré, mais l'interface FastAPI reste en français pour l'instant (seul le dashboard Streamlit est déjà traduit).</p>
     </form>
-    {% endif %}
 </div>
 
 <div class="tk-card">

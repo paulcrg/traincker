@@ -409,17 +409,45 @@ def test_sauvegarde_parametres_alertes(client, parametres_memoire):
     assert parametres_memoire["valeurs"]["canal_email"] is False
 
 
-def test_sauvegarde_parametres_accessibilite_instantanee(client, parametres_memoire):
+def test_sauvegarde_parametres_accessibilite_par_cookie(client, parametres_memoire):
+    """L'accessibilité ne doit plus jamais toucher au fichier partagé —
+    seulement au cookie du visiteur qui fait la requête."""
+    valeurs_avant = dict(parametres_memoire["valeurs"])
     r = client.post("/apropos/parametres/accessibilite", data={
         "contraste_eleve": "on", "taille_police": "grande",
     })
     assert r.status_code == 204
-    assert parametres_memoire["valeurs"]["contraste_eleve"] is True
-    assert parametres_memoire["valeurs"]["taille_police"] == "grande"
+    assert main.COOKIE_ACCESSIBILITE in r.cookies
+    # Le fichier partage (parametres.json, alertes) ne doit pas avoir bouge
+    assert parametres_memoire["valeurs"] == valeurs_avant
+
+
+def test_accessibilite_ne_change_que_pour_le_visiteur_qui_la_change(client, parametres_memoire):
+    """Régression : avant, l'accessibilité était stockée dans un fichier
+    partagé — un visiteur qui passait en thème clair changeait l'affichage
+    de tout le monde. Ce n'est plus le cas : sans cookie, un autre
+    "visiteur" (un autre client HTTP, donc sans le cookie) voit toujours
+    les valeurs par défaut."""
+    client.post("/apropos/parametres/accessibilite", data={"theme_clair": "on"})
+
+    autre_visiteur = TestClient(main.app)
+    r = autre_visiteur.get("/apropos")
+    assert "checked" not in r.text.split('name="theme_clair"')[1].split(">")[0]
 
 
 def test_bouton_appliquer_absent_du_formulaire_accessibilite(client, parametres_memoire):
     assert ">Appliquer<" not in client.get("/apropos").text
+
+
+def test_accessibilite_jamais_bloquee_en_lecture_seule(client, monkeypatch):
+    """L'accessibilité ne touchant plus qu'au cookie du visiteur (jamais
+    aux données partagées), elle reste modifiable même en lecture seule
+    (contrairement aux Alertes, qui restent bloquées à raison)."""
+    monkeypatch.setattr(main, "LECTURE_SEULE", True)
+    r = client.post("/apropos/parametres/accessibilite", data={"contraste_eleve": "on"})
+    assert r.status_code == 204
+    # Un seul message "desactive en lecture seule" doit rester : celui des Alertes
+    assert client.get("/apropos").text.count("désactivée en lecture seule") == 1
 
 
 # --- Mode lecture seule ---------------------------------------------------------
@@ -428,14 +456,12 @@ def test_lecture_seule_bloque_import_cote_serveur(client, favoris_memoire, monke
     monkeypatch.setattr(main, "LECTURE_SEULE", True)
     r = client.post("/apropos/importer", files={"fichier": ("f.json", b'{"trajets":[]}', "application/json")})
     assert "désactivé en lecture seule" in r.text
-    r2 = client.post("/apropos/parametres/accessibilite", data={})
-    assert r2.status_code == 403
 
 
-def test_lecture_seule_masque_les_formulaires(client, monkeypatch):
+def test_lecture_seule_masque_le_formulaire_import(client, monkeypatch):
     monkeypatch.setattr(main, "LECTURE_SEULE", True)
     r = client.get("/apropos")
-    assert r.text.count("désactivée en lecture seule") == 2
+    assert r.text.count("désactivée en lecture seule") == 1  # import uniquement
 
 
 # --- Mode démo ---------------------------------------------------------
@@ -461,6 +487,16 @@ def test_demo_horodate_les_nouveaux_trajets(client, favoris_memoire, monkeypatch
         "nom": "Test démo", "gare_depart_id": "A", "gare_arrivee_id": "B",
     })
     assert favoris_memoire["trajets"][0].cree_le is not None
+
+
+def test_demo_horodate_aussi_le_trajet_retour(client, favoris_memoire, monkeypatch):
+    """Régression : le bouton "Créer le trajet retour" oubliait de
+    marquer cree_le, donc ces trajets-là n'expiraient jamais en mode
+    démo (contrairement à ceux créés via le formulaire d'ajout)."""
+    monkeypatch.setattr(main, "MODE_DEMO", True)
+    favoris_memoire["trajets"] = [Trajet("Aller", "A", "GareA", "B", "GareB")]
+    client.post("/favoris/0/retour")
+    assert favoris_memoire["trajets"][1].cree_le is not None
 
 
 def test_hors_demo_pas_de_limite_ni_horodatage(client, favoris_memoire, monkeypatch):

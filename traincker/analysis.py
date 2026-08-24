@@ -55,17 +55,22 @@ def calculer_retard_minutes(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def stats_ponctualite_par_ligne(df: pd.DataFrame) -> pd.DataFrame:
+def stats_ponctualite_par_ligne(df: pd.DataFrame, limite: int = 15) -> pd.DataFrame:
     df = calculer_retard_minutes(df)
     stats = df.groupby("ligne")["retard_minutes"].agg(retard_moyen="mean", retard_ecart_type="std", nb_trains="count")
     stats["taux_ponctualite"] = df.groupby("ligne")["retard_minutes"].apply(lambda x: np.mean(x < 5) * 100)
+    # On garde d'abord les lignes les plus observées (les "grosses" lignes),
+    # pour éviter qu'un code rare/ponctuel (une seule mission observée) ne
+    # pollue le tableau à égalité avec les lignes régulières.
+    stats = stats.sort_values("nb_trains", ascending=False).head(limite)
     return stats.sort_values("taux_ponctualite", ascending=False)
 
 
-def stats_ponctualite_par_gare(df: pd.DataFrame) -> pd.DataFrame:
+def stats_ponctualite_par_gare(df: pd.DataFrame, limite: int = 15) -> pd.DataFrame:
     df = calculer_retard_minutes(df)
     stats = df.groupby("gare")["retard_minutes"].agg(retard_moyen="mean", retard_ecart_type="std", nb_trains="count")
     stats["taux_ponctualite"] = df.groupby("gare")["retard_minutes"].apply(lambda x: np.mean(x < 5) * 100)
+    stats = stats.sort_values("nb_trains", ascending=False).head(limite)
     return stats.sort_values("taux_ponctualite", ascending=False)
 
 

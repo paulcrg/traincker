@@ -25,14 +25,14 @@
         hx-on::after-request="if(event.detail.successful){this.reset(); document.getElementById('selection-depart').innerHTML=''; document.getElementById('selection-arrivee').innerHTML=''; document.getElementById('gare_depart_id').value=''; document.getElementById('gare_depart_nom').value=''; document.getElementById('gare_arrivee_id').value=''; document.getElementById('gare_arrivee_nom').value='';}"
     >
         <label class="tk-field-label" for="nom">Nom du trajet</label>
-        <input type="text" id="nom" name="nom" placeholder="ex: Domicile -> ESEO" required>
+        <input type="text" id="nom" name="nom" placeholder="ex: Domicile -> Travail" required>
 
         <label class="tk-field-label">Gare de départ</label>
         <div class="search-wrap">
             <input
                 type="text"
                 name="q"
-                placeholder="ex: Nuits-Saint-Georges"
+                placeholder="ex: Beaune"
                 autocomplete="off"
                 hx-get="/favoris/gares/suggestions?champ=depart"
                 hx-trigger="keyup changed delay:150ms"
