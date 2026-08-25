@@ -1,11 +1,14 @@
 """Tests pour traincker/utils.py."""
 
+from datetime import timedelta
+
 from traincker.utils import (
     formater_heure,
     calculer_compte_a_rebours,
     simplifier_nom_gare,
     humaniser_ligne,
 )
+from traincker.tz_utils import maintenant_paris
 
 
 def test_formater_heure_vide():
@@ -15,6 +18,17 @@ def test_formater_heure_vide():
 
 def test_compte_a_rebours_vide():
     assert calculer_compte_a_rebours("") == "?"
+
+
+def test_compte_a_rebours_correct_meme_si_serveur_pas_en_heure_paris():
+    """Régression : le calcul comparait l'horaire Navitia (toujours en
+    heure de Paris) à l'heure système du serveur — correct en local
+    (machine réglée sur l'heure de Paris) mais décalé de 1h/2h une fois
+    déployé sur Render/GitHub Actions, qui tournent en UTC."""
+    dans_30_min = maintenant_paris() + timedelta(minutes=30)
+    horaire_navitia = dans_30_min.strftime("%Y%m%dT%H%M%S")
+    resultat = calculer_compte_a_rebours(horaire_navitia)
+    assert resultat in ("29 min", "30 min")
 
 
 def test_simplifier_nom_gare_prefixe_redondant():
