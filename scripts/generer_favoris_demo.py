@@ -1,18 +1,16 @@
 """
-Script à lancer UNE FOIS en local (avec ta vraie SNCF_API_KEY) pour
-retrouver les stop_area_id des gares des 5 trajets de démonstration, et
-générer directement le JSON à coller dans config/favoris.json (ou dans un
-config/favoris.demo.json séparé, à toi de voir).
+Script à lancer localement (avec une clé SNCF_API_KEY valide) pour
+retrouver les stop_area_id des gares des trajets de démonstration, et
+générer le JSON à coller dans config/favoris.json.
 
 Usage :
     python scripts/generer_favoris_demo.py
 
 Les trajets internationaux (ex: Zürich HB) ne sont pas garantis d'être
-dans la couverture Navitia "sncf" — le script te dira "AUCUN RÉSULTAT" si
-une gare n'est pas trouvée, à toi de vérifier/adapter dans ce cas
-(éventuellement remplacer par une gare frontière comme "Bâle SNCF" ou
-laisser tel quel si un TGV Lyria dessert bien Zürich HB dans les données
-SNCF).
+dans la couverture Navitia "sncf" — le script affiche "AUCUN RÉSULTAT"
+si une gare n'est pas trouvée ; il faut alors vérifier/adapter le nom
+(éventuellement une gare frontière comme "Bâle SNCF"), ou confirmer que
+la desserte existe bien dans les données SNCF (ex: TGV Lyria).
 """
 
 import json
