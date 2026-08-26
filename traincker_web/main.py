@@ -1,9 +1,5 @@
 """
-Prototype FastAPI + HTMX pour Traincker.
-
-Étape 1 de la migration : recherche de gare + affichage des prochains
-départs. Ne touche à rien côté Streamlit (dashboard.py) — coexistence
-totale pendant la migration.
+Interface web FastAPI + HTMX de Traincker.
 
 Lancer en local :
     uvicorn traincker_web.main:app --reload
@@ -15,6 +11,7 @@ import io
 import json
 import os
 import time
+from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
@@ -22,6 +19,7 @@ from fastapi import FastAPI, Request, Form, UploadFile, File
 from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.gzip import GZipMiddleware
 
 import matplotlib
 matplotlib.use("Agg")  # pas d'interface graphique : on ne fait que générer des PNG
@@ -36,10 +34,9 @@ from traincker.icons import icono, titre_section
 from traincker.changelog import CHANGELOG
 from traincker.settings import charger_parametres, sauvegarder_parametres
 from traincker.theme import css_accessibilite, CSS_THEME_CLAIR
-from traincker.journal import ajouter_entree, lire_journal, vider_journal
 from traincker.logs import lire_logs, vider_logs
 from traincker.db import est_configure, charger_dernier_horodatage
-from traincker.tz_utils import parser_horodatage_affichage
+from traincker.tz_utils import parser_horodatage_affichage, maintenant_paris
 from traincker.collector import CSV_PATH
 from traincker.analysis import (
     charger_donnees,
@@ -61,7 +58,19 @@ from traincker.viz import (
 BASE_DIR = Path(__file__).resolve().parent
 
 app = FastAPI(title="Traincker")
+app.add_middleware(GZipMiddleware, minimum_size=500)
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
+
+
+@app.middleware("http")
+async def _cache_navigateur_static(request: Request, call_next):
+    """Les fichiers statiques (CSS, logos) ne changent qu'à chaque
+    déploiement : autant laisser le navigateur les garder en cache
+    plutôt que de les re-télécharger à chaque visite."""
+    reponse = await call_next(request)
+    if request.url.path.startswith("/static/"):
+        reponse.headers["Cache-Control"] = "public, max-age=86400"
+    return reponse
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
 
 
@@ -82,6 +91,37 @@ client = NavitiaClient()
 
 SEUIL_RECHERCHE = 3  # nombre de caractères minimum avant de chercher une gare
 LECTURE_SEULE = os.getenv("TRAINCKER_READONLY", "").lower() in ("1", "true", "yes")
+
+# --- Limitation de débit (anti-spam) --------------------------------------
+# En mémoire, par IP : suffisant vu qu'il n'y a qu'un seul worker Render
+# (WEB_CONCURRENCY=1). Protège les actions qui écrivent des données
+# (ajout/suppression de trajets, import...) et celles qui appellent
+# l'API SNCF, contre le spam de clics ou les scripts automatisés.
+_debit_requetes: dict[str, list[float]] = defaultdict(list)
+
+
+def _ip_visiteur(request: Request) -> str:
+    return request.client.host if request.client else "inconnu"
+
+
+def _limite_atteinte(request: Request, nom_action: str, max_requetes: int, fenetre_secondes: int) -> bool:
+    """True si le visiteur a dépassé la limite pour cette action."""
+    cle = f"{nom_action}:{_ip_visiteur(request)}"
+    maintenant = time.time()
+    horodatages = _debit_requetes[cle]
+    while horodatages and horodatages[0] < maintenant - fenetre_secondes:
+        horodatages.pop(0)
+    if len(horodatages) >= max_requetes:
+        return True
+    horodatages.append(maintenant)
+    return False
+
+
+def _reponse_limite_debit(request: Request) -> Response:
+    return render(
+        "_erreur.html",
+        {"request": request, "message": "Trop de requêtes en peu de temps — réessaie dans un instant."},
+    )
 
 # Mode démo publique : ajout de trajets autorisé, mais limité et
 # temporaire — pour ouvrir traincker.app au public sans laisser
@@ -192,6 +232,47 @@ def _ecrire_accessibilite(response: Response, valeurs: dict) -> None:
     )
 
 
+COOKIE_JOURNAL = "traincker_journal"
+JOURNAL_LIMITE = 20
+
+
+def _lire_journal_visiteur(request: Request) -> list[dict]:
+    """Historique personnel propre à CE visiteur (cookie), pas partagé :
+    contrairement au journal du dashboard (fichier unique, un seul
+    utilisateur réel), le site public a plusieurs visiteurs en même
+    temps — chacun doit voir uniquement ses propres recherches."""
+    brut = request.cookies.get(COOKIE_JOURNAL)
+    if not brut:
+        return []
+    try:
+        entrees = json.loads(brut)
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(entrees, list):
+        return []
+    return entrees
+
+
+def _ajouter_entree_journal_visiteur(
+    response: Response, request: Request, type_evenement: str, detail: str
+) -> None:
+    entrees = _lire_journal_visiteur(request)
+    entrees.insert(
+        0,
+        {
+            "horodatage": maintenant_paris().replace(tzinfo=None).strftime("%Y-%m-%d %H:%M"),
+            "type": type_evenement,
+            "detail": detail,
+        },
+    )
+    response.set_cookie(
+        COOKIE_JOURNAL,
+        json.dumps(entrees[:JOURNAL_LIMITE]),
+        max_age=30 * 24 * 3600,
+        samesite="lax",
+    )
+
+
 def _contexte_commun(request: Request, page: str) -> dict:
     """Paramètres d'accessibilité (par visiteur, cookie) + KPI à injecter
     dans base.html, calculés à chaque requête."""
@@ -223,6 +304,9 @@ def index(request: Request):
 def suggestions_gares(request: Request, q: str = ""):
     """Renvoie le fragment HTML des suggestions de gares (déclenché par HTMX
     à chaque frappe dans le champ de recherche, avec un seuil de 3 caractères)."""
+    if _limite_atteinte(request, "suggestions", max_requetes=40, fenetre_secondes=10):
+        return _reponse_limite_debit(request)
+
     q = q.strip()
     if len(q) < SEUIL_RECHERCHE:
         return render(
@@ -244,6 +328,9 @@ def suggestions_gares(request: Request, q: str = ""):
 @app.post("/departs", response_class=HTMLResponse)
 def departs(request: Request, gare_id: str = Form(...), gare_nom: str = Form("")):
     """Affiche les prochains départs + perturbations pour la gare choisie."""
+    if _limite_atteinte(request, "departs", max_requetes=20, fenetre_secondes=60):
+        return _reponse_limite_debit(request)
+
     try:
         departs_bruts = client.get_next_departures(gare_id)
         perturbations = client.get_disruptions(gare_id)
@@ -251,9 +338,6 @@ def departs(request: Request, gare_id: str = Form(...), gare_nom: str = Form("")
         return render(
             "_erreur.html", {"request": request, "message": str(err)}
         )
-
-    if not LECTURE_SEULE:
-        ajouter_entree("recherche", gare_nom or gare_id)
 
     departs = [
         {
@@ -267,7 +351,7 @@ def departs(request: Request, gare_id: str = Form(...), gare_nom: str = Form("")
         for d in departs_bruts
     ]
 
-    return render(
+    reponse = render(
         "_departs.html",
         {
             "request": request,
@@ -276,6 +360,9 @@ def departs(request: Request, gare_id: str = Form(...), gare_nom: str = Form("")
             "perturbations": perturbations,
         },
     )
+    if not LECTURE_SEULE:
+        _ajouter_entree_journal_visiteur(reponse, request, "recherche", gare_nom or gare_id)
+    return reponse
 
 
 # --- Favoris -----------------------------------------------------------
@@ -399,6 +486,9 @@ def fragment_favoris_liste(request: Request):
 def suggestions_gares_favoris(request: Request, champ: str, q: str = ""):
     """Même principe que /gares/suggestions, mais pour le formulaire
     d'ajout de favori (deux champs indépendants : depart / arrivee)."""
+    if _limite_atteinte(request, "suggestions", max_requetes=40, fenetre_secondes=10):
+        return _reponse_limite_debit(request)
+
     q = q.strip()
     if len(q) < SEUIL_RECHERCHE:
         return render(
@@ -426,6 +516,9 @@ def ajouter_favori(
     gare_arrivee_id: str = Form(...),
     gare_arrivee_nom: str = Form(""),
 ):
+    if _limite_atteinte(request, "favoris-ecriture", max_requetes=15, fenetre_secondes=60):
+        return _reponse_limite_debit(request)
+
     favoris = _charger_favoris_purge()
     nb_trajets_temporaires = sum(1 for t in favoris if t.cree_le)
 
@@ -462,6 +555,9 @@ def ajouter_favori(
 
 @app.post("/favoris/{index}/toggle", response_class=HTMLResponse)
 def toggle_favori(request: Request, index: int):
+    if _limite_atteinte(request, "favoris-ecriture", max_requetes=15, fenetre_secondes=60):
+        return _reponse_limite_debit(request)
+
     favoris = charger_favoris()
     if 0 <= index < len(favoris):
         favoris[index].actif = not favoris[index].actif
@@ -474,6 +570,9 @@ def toggle_favori(request: Request, index: int):
 
 @app.delete("/favoris/{index}", response_class=HTMLResponse)
 def supprimer_favori(request: Request, index: int):
+    if _limite_atteinte(request, "favoris-ecriture", max_requetes=15, fenetre_secondes=60):
+        return _reponse_limite_debit(request)
+
     favoris = charger_favoris()
     if 0 <= index < len(favoris):
         favoris.pop(index)
@@ -486,6 +585,9 @@ def supprimer_favori(request: Request, index: int):
 
 @app.post("/favoris/{index}/retour", response_class=HTMLResponse)
 def creer_trajet_retour(request: Request, index: int):
+    if _limite_atteinte(request, "favoris-ecriture", max_requetes=15, fenetre_secondes=60):
+        return _reponse_limite_debit(request)
+
     favoris = _charger_favoris_purge()
     if 0 <= index < len(favoris):
         trajet = favoris[index]
@@ -688,7 +790,7 @@ def page_apropos(request: Request):
             "request": request,
             "changelog": CHANGELOG,
             "parametres": parametres,
-            "journal": lire_journal(20),
+            "journal": _lire_journal_visiteur(request),
             "logs": lire_logs(30),
             **_contexte_commun(request, "apropos"),
         },
@@ -705,6 +807,9 @@ def sauver_parametres_alertes(
     email_destinataire: str = Form(""),
     alertes_meteo: bool = Form(False),
 ):
+    if _limite_atteinte(request, "parametres", max_requetes=10, fenetre_secondes=60):
+        return _reponse_limite_debit(request)
+
     if LECTURE_SEULE or MODE_DEMO:
         return render(
             "_parametres_resultat.html",
@@ -730,11 +835,15 @@ def sauver_parametres_alertes(
 
 @app.post("/apropos/parametres/accessibilite")
 def sauver_parametres_accessibilite(
+    request: Request,
     contraste_eleve: bool = Form(False),
     taille_police: str = Form("normale"),
     theme_clair: bool = Form(False),
     langue: str = Form("fr"),
 ):
+    if _limite_atteinte(request, "parametres", max_requetes=30, fenetre_secondes=60):
+        return Response(status_code=429)
+
     reponse = Response(status_code=204)
     _ecrire_accessibilite(
         reponse,
@@ -750,16 +859,22 @@ def sauver_parametres_accessibilite(
 
 @app.delete("/apropos/journal", response_class=HTMLResponse)
 def supprimer_journal(request: Request):
-    if not LECTURE_SEULE:
-        vider_journal()
-    return render(
+    if _limite_atteinte(request, "parametres", max_requetes=10, fenetre_secondes=60):
+        return _reponse_limite_debit(request)
+
+    reponse = render(
         "_journal_liste.html",
-        {"request": request, "journal": lire_journal(20), "lecture_seule": LECTURE_SEULE},
+        {"request": request, "journal": [], "lecture_seule": LECTURE_SEULE},
     )
+    reponse.delete_cookie(COOKIE_JOURNAL)
+    return reponse
 
 
 @app.delete("/apropos/logs", response_class=HTMLResponse)
 def supprimer_logs(request: Request):
+    if _limite_atteinte(request, "parametres", max_requetes=10, fenetre_secondes=60):
+        return _reponse_limite_debit(request)
+
     if not LECTURE_SEULE:
         vider_logs()
     return render(
@@ -797,6 +912,9 @@ def exporter_favoris_config():
 
 @app.post("/apropos/importer", response_class=HTMLResponse)
 async def importer_favoris_config(request: Request, fichier: UploadFile = File(...)):
+    if _limite_atteinte(request, "parametres", max_requetes=10, fenetre_secondes=60):
+        return _reponse_limite_debit(request)
+
     if LECTURE_SEULE:
         return render(
             "_import_resultat.html",

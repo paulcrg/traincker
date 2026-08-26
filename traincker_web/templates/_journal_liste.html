@@ -15,14 +15,12 @@
         {% endfor %}
     </tbody>
 </table>
-{% if not lecture_seule %}
 <div class="tk-btn-row">
     <button
         class="tk-btn tk-btn-danger"
         hx-delete="/apropos/journal"
         hx-target="#journal-liste"
-        hx-confirm="Vider tout l'historique personnel ?"
+        hx-confirm="Vider ton historique personnel ?"
     >Vider l'historique</button>
 </div>
-{% endif %}
 {% endif %}

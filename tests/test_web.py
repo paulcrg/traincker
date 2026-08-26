@@ -41,21 +41,24 @@ def isoler_kpi(monkeypatch):
 @pytest.fixture(autouse=True)
 def invalider_cache_donnees():
     """Le cache TTL de charger_donnees() (et désormais celui des PNG de
-    graphiques, du bandeau KPI, et du prochain départ des favoris) est un
-    singleton au niveau du module : sans ça, un test pourrait récupérer
-    les données/images mises en cache par le test précédent au lieu
-    d'appeler son propre mock."""
+    graphiques, du bandeau KPI, du prochain départ des favoris, et le
+    compteur de limitation de débit anti-spam) est un singleton au niveau
+    du module : sans ça, un test pourrait récupérer les données/images
+    mises en cache par le test précédent, ou se faire bloquer à tort par
+    le compteur de débit d'un test précédent."""
     main._invalider_cache_donnees()
     main._cache_graphiques.clear()
     main._cache_kpi["valeur"] = None
     main._cache_kpi["expire"] = 0.0
     main._cache_prochain_depart.clear()
+    main._debit_requetes.clear()
     yield
     main._invalider_cache_donnees()
     main._cache_graphiques.clear()
     main._cache_kpi["valeur"] = None
     main._cache_kpi["expire"] = 0.0
     main._cache_prochain_depart.clear()
+    main._debit_requetes.clear()
 
 
 @pytest.fixture
@@ -569,13 +572,61 @@ def test_demo_les_trajets_permanents_ne_comptent_pas_dans_la_limite(client, favo
 
 # --- Journal et logs ---------------------------------------------------------
 
+def test_journal_enregistre_une_recherche_reussie(client, monkeypatch):
+    monkeypatch.setattr(
+        main.client, "get_next_departures",
+        lambda gare_id, count=5: [{
+            "ligne": "P20", "direction": "Dijon",
+            "heure_theorique": "20260701T080000",
+            "heure_prevue": "20260701T080000", "statut": "base_schedule",
+        }],
+    )
+    monkeypatch.setattr(main.client, "get_disruptions", lambda gare_id: [])
+
+    client.post("/departs", data={"gare_id": "stop_area:SNCF:TEST", "gare_nom": "GareDeTest"})
+    r = client.get("/apropos")
+    assert "GareDeTest" in r.text
+
+
+def test_journal_isole_par_visiteur(client, monkeypatch):
+    """Régression : l'historique était stocké dans un fichier CSV partagé
+    (comme celui du dashboard Streamlit) — tous les visiteurs du site
+    public voyaient le même historique. Chacun doit désormais avoir le
+    sien (cookie), invisible pour les autres."""
+    monkeypatch.setattr(
+        main.client, "get_next_departures",
+        lambda gare_id, count=5: [{
+            "ligne": "P20", "direction": "Dijon",
+            "heure_theorique": "20260701T080000",
+            "heure_prevue": "20260701T080000", "statut": "base_schedule",
+        }],
+    )
+    monkeypatch.setattr(main.client, "get_disruptions", lambda gare_id: [])
+
+    client.post("/departs", data={"gare_id": "stop_area:SNCF:TEST", "gare_nom": "GareVisiteur1"})
+    assert "GareVisiteur1" in client.get("/apropos").text
+
+    autre_visiteur = TestClient(main.app)
+    r = autre_visiteur.get("/apropos")
+    assert "GareVisiteur1" not in r.text
+    assert "Aucune recherche enregistrée" in r.text
+
+
 def test_vider_journal(client, monkeypatch):
-    monkeypatch.setattr(main, "lire_journal", lambda n: [])
-    appele = {"valeur": False}
-    monkeypatch.setattr(main, "vider_journal", lambda: appele.__setitem__("valeur", True))
+    monkeypatch.setattr(
+        main.client, "get_next_departures",
+        lambda gare_id, count=5: [{
+            "ligne": "P20", "direction": "Dijon",
+            "heure_theorique": "20260701T080000",
+            "heure_prevue": "20260701T080000", "statut": "base_schedule",
+        }],
+    )
+    monkeypatch.setattr(main.client, "get_disruptions", lambda gare_id: [])
+    client.post("/departs", data={"gare_id": "stop_area:SNCF:TEST", "gare_nom": "GareTest"})
+
     r = client.delete("/apropos/journal")
     assert r.status_code == 200
-    assert appele["valeur"] is True
+    assert "Aucune recherche enregistrée" in client.get("/apropos").text
 
 
 def test_vider_logs(client, monkeypatch):
@@ -585,3 +636,54 @@ def test_vider_logs(client, monkeypatch):
     r = client.delete("/apropos/logs")
     assert r.status_code == 200
     assert appele["valeur"] is True
+
+
+# --- Limitation de débit (anti-spam) ---------------------------------------------------------
+
+def test_limite_debit_bloque_apres_le_seuil(client, favoris_memoire):
+    """Spammer l'ajout de trajets doit finir par être bloqué, plutôt que
+    d'accepter un nombre illimité de requêtes en rafale."""
+    reponses = [
+        client.post("/favoris/ajouter", data={
+            "nom": f"Spam {i}", "gare_depart_id": "A", "gare_arrivee_id": "B",
+        })
+        for i in range(20)
+    ]
+    textes = [r.text for r in reponses]
+    assert any("Trop de requêtes" in t for t in textes)
+    # Pas TOUTES bloquées non plus : les premières doivent passer normalement
+    assert any("Trop de requêtes" not in t for t in textes)
+
+
+def test_limite_debit_isolee_par_ip(client, favoris_memoire):
+    """Le blocage d'un visiteur qui spam ne doit pas affecter un autre
+    visiteur (IP différente) qui utilise le site normalement."""
+    for i in range(20):
+        client.post("/favoris/ajouter", data={
+            "nom": f"Spam {i}", "gare_depart_id": "A", "gare_arrivee_id": "B",
+        })
+
+    # Simule une autre IP en appelant directement la fonction de verification
+    autre_ip_ok = not main._limite_atteinte(
+        _FauxRequestIP("9.9.9.9"), "favoris-ecriture", max_requetes=15, fenetre_secondes=60
+    )
+    assert autre_ip_ok
+
+
+class _FauxRequestIP:
+    """Petit substitut minimal pour simuler une requête venant d'une IP
+    précise, sans passer par un vrai client HTTP."""
+    class _Client:
+        def __init__(self, host):
+            self.host = host
+
+    def __init__(self, ip):
+        self.client = self._Client(ip)
+
+
+def test_limite_debit_message_utilisateur_clair(client, favoris_memoire):
+    for i in range(20):
+        r = client.post("/favoris/ajouter", data={
+            "nom": f"Spam {i}", "gare_depart_id": "A", "gare_arrivee_id": "B",
+        })
+    assert "réessaie dans un instant" in r.text
