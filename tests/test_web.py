@@ -252,11 +252,11 @@ def test_favoris_appels_api_paralleles(client, favoris_memoire, monkeypatch):
         for i in range(5)
     ]
 
-    def _lente(gare_id, count=1):
+    def _lente(gare_depart_id, gare_arrivee_id):
         _time.sleep(0.2)
-        return [{"heure_prevue": "20260701T080000"}]
+        return "20260701T080000"
 
-    monkeypatch.setattr(main.client, "get_next_departures", _lente)
+    monkeypatch.setattr(main.client, "get_prochain_depart_trajet", _lente)
 
     debut = _time.time()
     r = client.get("/favoris")
@@ -275,11 +275,11 @@ def test_favoris_prochain_depart_mis_en_cache(client, favoris_memoire, monkeypat
 
     compteur = {"appels": 0}
 
-    def _compter(gare_id, count=1):
+    def _compter(gare_depart_id, gare_arrivee_id):
         compteur["appels"] += 1
-        return [{"heure_prevue": "20260701T080000"}]
+        return "20260701T080000"
 
-    monkeypatch.setattr(main.client, "get_next_departures", _compter)
+    monkeypatch.setattr(main.client, "get_prochain_depart_trajet", _compter)
 
     client.get("/favoris")
     client.get("/favoris")

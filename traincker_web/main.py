@@ -399,25 +399,28 @@ PROCHAIN_DEPART_CACHE_TTL = 20  # secondes : assez court pour rester à jour, as
 _cache_prochain_depart: dict[str, tuple[float, dict | None]] = {}
 
 
-def _prochain_depart_pour(gare_id: str) -> dict | None:
+def _prochain_depart_pour(gare_depart_id: str, gare_arrivee_id: str) -> dict | None:
+    """Prochain départ pour un trajet précis (pas n'importe quel train de
+    la gare de départ — sur un gros hub multi-lignes comme Paris Nord ou
+    Montparnasse, ça n'aurait aucun rapport avec la destination réelle)."""
+    cle_cache = f"{gare_depart_id}:{gare_arrivee_id}"
     maintenant = time.time()
-    entree = _cache_prochain_depart.get(gare_id)
+    entree = _cache_prochain_depart.get(cle_cache)
     if entree and maintenant < entree[0]:
         return entree[1]
 
     try:
-        departs_bruts = client.get_next_departures(gare_id, count=1)
+        heure_prevue = client.get_prochain_depart_trajet(gare_depart_id, gare_arrivee_id)
         resultat = None
-        if departs_bruts:
-            d = departs_bruts[0]
+        if heure_prevue:
             resultat = {
-                "heure": formater_heure(d["heure_prevue"]),
-                "compte_a_rebours": calculer_compte_a_rebours(d["heure_prevue"]),
+                "heure": formater_heure(heure_prevue),
+                "compte_a_rebours": calculer_compte_a_rebours(heure_prevue),
             }
     except NavitiaAPIError:
         resultat = None
 
-    _cache_prochain_depart[gare_id] = (maintenant + PROCHAIN_DEPART_CACHE_TTL, resultat)
+    _cache_prochain_depart[cle_cache] = (maintenant + PROCHAIN_DEPART_CACHE_TTL, resultat)
     return resultat
 
 
@@ -437,7 +440,9 @@ def _construire_contexte_favoris() -> list[dict]:
     if indices_actifs:
         with ThreadPoolExecutor(max_workers=min(8, len(indices_actifs))) as executor:
             futures = {
-                executor.submit(_prochain_depart_pour, favoris[i].gare_depart_id): i
+                executor.submit(
+                    _prochain_depart_pour, favoris[i].gare_depart_id, favoris[i].gare_arrivee_id
+                ): i
                 for i in indices_actifs
             }
             for future in futures:

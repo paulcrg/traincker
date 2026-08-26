@@ -76,7 +76,16 @@ class NavitiaClient:
         ]
 
     def get_next_departures(self, stop_area_id: str, count: int = 10) -> list[dict]:
-        """Récupère les prochains départs pour une gare donnée (stop_area)."""
+        """Récupère les prochains départs pour une gare donnée (stop_area).
+
+        Attention : renvoie N'IMPORTE QUEL train partant de cette gare,
+        toutes lignes confondues — pas spécifiquement un train allant vers
+        une destination donnée. Sur une gare à une seule ligne utile, ça
+        correspond en pratique au bon train ; sur un gros hub multi-lignes
+        (Paris Nord, Montparnasse...), le résultat peut n'avoir aucun
+        rapport avec la destination recherchée. Pour un trajet précis
+        entre deux gares, utiliser get_prochain_depart_trajet() à la place.
+        """
         data = self._get(
             f"/stop_areas/{stop_area_id}/departures",
             params={"count": count},
@@ -100,6 +109,29 @@ class NavitiaClient:
                 }
             )
         return departures
+
+    def get_prochain_depart_trajet(self, gare_depart_id: str, gare_arrivee_id: str) -> Optional[str]:
+        """Calcule le prochain départ réel pour un trajet précis (gare A
+        vers gare B), via l'endpoint /journeys de Navitia — contrairement
+        à get_next_departures(), qui renvoie n'importe quel train de la
+        gare de départ sans tenir compte de la destination.
+
+        Retourne l'horodatage Navitia du départ (ex: "20260824T203000"),
+        ou None si aucun trajet n'a été trouvé.
+        """
+        data = self._get(
+            "/journeys",
+            params={
+                "from": gare_depart_id,
+                "to": gare_arrivee_id,
+                "count": 1,
+                "data_freshness": "realtime",
+            },
+        )
+        journeys = data.get("journeys", [])
+        if not journeys:
+            return None
+        return journeys[0].get("departure_date_time")
 
     def get_disruptions(self, stop_area_id: str) -> list[dict]:
         """Récupère les perturbations en cours affectant une gare donnée."""
