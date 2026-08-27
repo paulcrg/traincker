@@ -266,17 +266,19 @@ label.tk-field-label { display: block; font-weight: 600; font-size: 0.9rem; marg
 .tk-table-scroll { overflow-x: auto; margin: 0 0 0.4rem; -webkit-overflow-scrolling: touch; }
 .tk-table-scroll .tk-table { min-width: 480px; margin: 0.6rem 0 0; }
 
-/* --- Recherche instantanée façon dropdown flottant --- */
-.search-wrap { position: relative; margin-bottom: 0.3rem; }
+/* --- Recherche instantanée : les suggestions prennent une vraie place
+   dans la page (poussent le contenu suivant vers le bas) plutôt que de
+   flotter par-dessus, pour ne jamais rien recouvrir. --- */
+.search-wrap { position: relative; }
 .search-spinner {
     position: absolute; top: 50%; right: 14px; transform: translateY(-50%);
     color: var(--accent); font-weight: 700; letter-spacing: 1px;
 }
 .suggestions-dropdown {
-    position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 30;
+    margin-top: 6px;
 }
 .suggestions-dropdown .liste-suggestions {
-    margin: 0; box-shadow: 0 12px 32px rgba(0,0,0,0.5); max-height: 260px; overflow-y: auto;
+    margin: 0; max-height: 260px; overflow-y: auto;
     animation: tk-fade-in 0.15s ease;
 }
 
