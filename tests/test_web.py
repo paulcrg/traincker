@@ -296,6 +296,21 @@ def test_favoris_champs_recherche_ont_bien_name_q(client, favoris_memoire):
     r = client.get("/favoris")
     assert r.text.count('name="q"') == 2
 
+
+def test_favoris_champs_recherche_isoles_l_un_de_l_autre(client, favoris_memoire):
+    """Régression : les 2 champs (départ/arrivée) partageaient le même
+    name="q" DANS LE MÊME <form> — deux éléments avec le même nom dans un
+    formulaire cassent la résolution par nom (form.elements["q"] devient
+    une liste au lieu d'un élément unique), ce qui provoquait un
+    comportement erratique (le texte tapé disparaissait, d'autres champs
+    du formulaire comme "nom" se réinitialisaient). Chaque champ doit
+    avoir un id unique et restreindre explicitement sa portée avec
+    hx-include="this" pour ne jamais dépendre du reste du formulaire."""
+    r = client.get("/favoris")
+    assert 'id="q-depart"' in r.text
+    assert 'id="q-arrivee"' in r.text
+    assert r.text.count('hx-include="this"') == 2
+
 # --- Statistiques ---------------------------------------------------------
 
 def test_stats_page_sans_donnees(client, monkeypatch):

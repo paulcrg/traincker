@@ -31,12 +31,15 @@
         <div class="search-wrap">
             <input
                 type="text"
+                id="q-depart"
                 name="q"
                 placeholder="ex: Beaune"
                 autocomplete="off"
                 hx-get="/favoris/gares/suggestions?champ=depart"
                 hx-trigger="keyup changed delay:150ms"
                 hx-target="#suggestions-depart"
+                hx-include="this"
+                onblur="setTimeout(() => { const el = document.getElementById('suggestions-depart'); if (el) el.innerHTML = ''; }, 200)"
             >
             <div id="suggestions-depart" class="suggestions-dropdown"></div>
         </div>
@@ -48,12 +51,15 @@
         <div class="search-wrap">
             <input
                 type="text"
+                id="q-arrivee"
                 name="q"
                 placeholder="ex: Dijon Ville"
                 autocomplete="off"
                 hx-get="/favoris/gares/suggestions?champ=arrivee"
                 hx-trigger="keyup changed delay:150ms"
                 hx-target="#suggestions-arrivee"
+                hx-include="this"
+                onblur="setTimeout(() => { const el = document.getElementById('suggestions-arrivee'); if (el) el.innerHTML = ''; }, 200)"
             >
             <div id="suggestions-arrivee" class="suggestions-dropdown"></div>
         </div>
