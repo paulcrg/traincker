@@ -57,6 +57,13 @@ from traincker.viz import (
 
 BASE_DIR = Path(__file__).resolve().parent
 
+# Version du CSS basée sur sa date de modification : le navigateur garde
+# /static/style.css en cache 24h (voir plus bas), donc sans ça, un
+# changement de style ne serait visible qu'après expiration du cache. En
+# ajoutant ?v=<mtime> à l'URL, le navigateur voit une URL différente dès
+# que le fichier change réellement, et retélécharge immédiatement.
+CSS_VERSION = str(int((BASE_DIR / "static" / "style.css").stat().st_mtime))
+
 app = FastAPI(title="Traincker")
 app.add_middleware(GZipMiddleware, minimum_size=500)
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
@@ -287,6 +294,7 @@ def _contexte_commun(request: Request, page: str) -> dict:
             accessibilite["taille_police"],
         ),
         "logo_fichier": "logo-dark.png" if theme_clair else "logo-white.png",
+        "css_version": CSS_VERSION,
         "kpi": _stats_rapides(),
         "mode_demo": MODE_DEMO,
         "demo_max_trajets": DEMO_MAX_TRAJETS,

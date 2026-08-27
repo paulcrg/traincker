@@ -311,6 +311,32 @@ def test_favoris_champs_recherche_isoles_l_un_de_l_autre(client, favoris_memoire
     assert 'id="q-arrivee"' in r.text
     assert r.text.count('hx-include="this"') == 2
 
+
+def test_favoris_formulaire_ne_se_reinitialise_pas_sur_une_sous_requete(client, favoris_memoire):
+    """Régression (la vraie cause du bug de saisie) : le formulaire
+    "Ajouter un trajet" avait hx-on::after-request="if(successful){
+    this.reset(); ...}" — sans vérifier QUI a fait la requête. Les
+    événements HTMX remontent dans le DOM comme des événements natifs :
+    chaque fois qu'un champ de recherche (interne au formulaire) terminait
+    SA PROPRE requête de suggestions, l'événement remontait jusqu'au
+    formulaire et déclenchait un reset complet — effaçant la lettre tout
+    juste tapée ET le nom du trajet. Le correctif vérifie que c'est bien
+    le formulaire LUI-MÊME (event.detail.elt === this) qui a fait la
+    requête avant de le réinitialiser."""
+    r = client.get("/favoris")
+    assert "event.detail.elt === this" in r.text
+
+
+def test_css_verse_avec_parametre_de_version(client):
+    """Régression : le cache navigateur (24h) sur /static/ empêchait de
+    voir les changements de style après un déploiement, tant que le
+    cache n'expirait pas. L'URL du CSS doit varier automatiquement
+    (?v=<horodatage du fichier>) pour forcer le navigateur à
+    retélécharger dès que le fichier change réellement."""
+    r = client.get("/")
+    assert "/static/style.css?v=" in r.text
+
+
 # --- Statistiques ---------------------------------------------------------
 
 def test_stats_page_sans_donnees(client, monkeypatch):
