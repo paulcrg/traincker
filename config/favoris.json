@@ -1,7 +1,7 @@
 {
   "trajets": [
-  {
-    "nom": "Dijon-Zurich HB",
+{
+  "nom": "Dijon-Zurich HB",
     "gare_depart_id": "stop_area:SNCF:87713040",
     "gare_depart_nom": "Dijon (Dijon)",
     "gare_arrivee_id": "stop_area:SNCF:85030007",
@@ -19,11 +19,11 @@
     "cree_le": null
   },
   {
-    "nom": "Dijon-Lausanne",
+    "nom": "Dijon-Chalon-sur-Saône",
     "gare_depart_id": "stop_area:SNCF:87713040",
     "gare_depart_nom": "Dijon (Dijon)",
-    "gare_arrivee_id": "stop_area:SNCF:85011205",
-    "gare_arrivee_nom": "Lausanne (Lausanne)",
+    "gare_arrivee_id": "stop_area:SNCF:87725002",
+    "gare_arrivee_nom": "Chalon-sur-Saône (Chalon-sur-Saône)",
     "actif": true,
     "cree_le": null
   },
