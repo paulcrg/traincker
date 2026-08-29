@@ -1,5 +1,10 @@
 # 🚆 Traincker
 
+![Tests](https://img.shields.io/badge/tests-137%20passing-brightgreen)
+![License](https://img.shields.io/badge/license-MIT-blue)
+![Python](https://img.shields.io/badge/python-3.12-blue)
+[![Démo](https://img.shields.io/badge/démo-traincker.app-success)](https://traincker.app)
+
 > Projet personnel — écrit pour apprendre l'analyse de données en Python (pandas/numpy/matplotlib) et une vraie mise en prod (FastAPI/HTMX) à travers un cas concret : mes trajets de train du quotidien.
 
 Suivi personnel des trains SNCF au quotidien : horaires, retards, perturbations,
