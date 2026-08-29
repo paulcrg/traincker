@@ -44,6 +44,24 @@
     "gare_arrivee_nom": "Lyon Part Dieu (Lyon)",
     "actif": true,
     "cree_le": null
+  },
+  {
+    "nom": "Nuits-Saint-Georges-Dijon",
+    "gare_depart_id": "stop_area:SNCF:87713529",
+    "gare_depart_nom": "Nuits-Saint-Georges (Nuits-Saint-Georges)",
+    "gare_arrivee_id": "stop_area:SNCF:87713040",
+    "gare_arrivee_nom": "Dijon (Dijon)",
+    "actif": true,
+    "cree_le": null
+  },
+  {
+    "nom": "Dijon-Nuits-Saint-Georges",
+    "gare_depart_id": "stop_area:SNCF:87713040",
+    "gare_depart_nom": "Dijon (Dijon)",
+    "gare_arrivee_id": "stop_area:SNCF:87713529",
+    "gare_arrivee_nom": "Nuits-Saint-Georges (Nuits-Saint-Georges)",
+    "actif": true,
+    "cree_le": null
   }
 ]
 }

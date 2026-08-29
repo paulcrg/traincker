@@ -134,7 +134,7 @@ def _reponse_limite_debit(request: Request) -> Response:
 # temporaire — pour ouvrir traincker.app au public sans laisser
 # n'importe qui accumuler des trajets indéfiniment.
 MODE_DEMO = os.getenv("TRAINCKER_DEMO", "").lower() in ("1", "true", "yes")
-DEMO_MAX_TRAJETS = 5
+DEMO_MAX_TRAJETS = 7
 DEMO_DUREE_VIE = timedelta(hours=1)
 
 # Même chemin que traincker/monitor.py, dupliqué ici pour ne pas importer

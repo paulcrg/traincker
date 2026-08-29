@@ -27,6 +27,8 @@ TRAJETS_DEMO = [
     ("Dijon-Chalon-sur-Saône", "Dijon", "Chalon-sur-Saône"),
     ("Paris-Bordeaux", "Paris Montparnasse", "Bordeaux Saint-Jean"),
     ("Marseille-Lyon", "Marseille Saint-Charles", "Lyon Part-Dieu"),
+    ("Nuits-Saint-Georges-Dijon", "Nuits-Saint-Georges", "Dijon"),
+    ("Dijon-Nuits-Saint-Georges", "Dijon", "Nuits-Saint-Georges"),
 ]
 
 

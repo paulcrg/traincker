@@ -515,14 +515,14 @@ def test_demo_limite_le_nombre_de_trajets(client, favoris_memoire, monkeypatch):
     maintenant = datetime.now(timezone.utc).isoformat()
     favoris_memoire["trajets"] = [
         Trajet(f"T{i}", f"A{i}", f"GA{i}", f"B{i}", f"GB{i}", cree_le=maintenant)
-        for i in range(5)
+        for i in range(7)
     ]
     r = client.post("/favoris/ajouter", data={
         "nom": "Un de trop", "gare_depart_id": "X", "gare_arrivee_id": "Y",
     })
     assert r.status_code == 200
-    assert "Limite de 5 trajets ajoutés atteinte" in r.text
-    assert len(favoris_memoire["trajets"]) == 5
+    assert "Limite de 7 trajets ajoutés atteinte" in r.text
+    assert len(favoris_memoire["trajets"]) == 7
 
 
 def test_demo_horodate_les_nouveaux_trajets(client, favoris_memoire, monkeypatch):

@@ -1,19 +1,11 @@
-<div align="center">
-
 # 🚆 Traincker
 
-**Suivi personnel des trains SNCF au quotidien** — horaires, retards, perturbations et alertes automatiques sur tes trajets favoris.
+> Projet personnel — écrit pour apprendre l'analyse de données en Python (pandas/numpy/matplotlib) et une vraie mise en prod (FastAPI/HTMX) à travers un cas concret : mes trajets de train du quotidien.
 
-[![Tests](https://img.shields.io/badge/tests-137%20passed-brightgreen)](#)
-[![Python](https://img.shields.io/badge/python-3.12-blue)](#)
-[![FastAPI](https://img.shields.io/badge/FastAPI-HTMX-009688)](#)
-[![Licence](https://img.shields.io/badge/licence-MIT-lightgrey)](#licence)
+Suivi personnel des trains SNCF au quotidien : horaires, retards, perturbations,
+et alertes automatiques sur tes trajets favoris — le tout en Python.
 
-**[🔗 traincker.app](https://traincker.app)** — démo publique en ligne
-
-</div>
-
----
+🔗 **[traincker.app](https://traincker.app)** — démo publique (voir la section [Démo publique](#démo-publique) ci-dessous)
 
 ## À propos
 
@@ -31,20 +23,18 @@ Priorité donnée à la **fonctionnalité** plutôt qu'à l'esthétique — c'es
 
 ## Fonctionnalités
 
-| | |
-|---|---|
-| 🔎 **Recherche instantanée** | Prochains départs pour une gare donnée, suggestions en direct |
-| ⭐ **Trajets favoris** | Gare départ → gare arrivée, prochain train filtré par destination |
-| 🔔 **Alertes automatiques** | Discord/email en cas de perturbation sur un trajet favori |
-| 📊 **Analyse de données** | Statistiques de ponctualité par ligne/gare (pandas/numpy) |
-| 📈 **Visualisations** | Évolution des retards, heatmap jour/heure (matplotlib) |
-| ♿ **Accessibilité** | Contraste élevé, taille de texte, thème clair — instantanés |
-| 🖥️ **Interface réactive** | FastAPI + HTMX, aucun rechargement de page |
+- 🔎 Recherche des prochains départs pour une gare donnée, avec suggestions en direct
+- ⭐ Gestion de trajets favoris (gare départ → gare arrivée)
+- 🔔 Alerte Discord/email automatique en cas de perturbation sur un trajet favori
+- 📊 Analyse de données (pandas/numpy) : statistiques de ponctualité par ligne/gare
+- 📈 Visualisation (matplotlib) : évolution des retards, heatmap jour/heure
+- ♿ Accessibilité : contraste élevé, taille de texte, thème clair, appliqués instantanément
+- 🖥️ Interface web FastAPI + HTMX (rapide, sans rechargement de page)
 
 ## Démo publique
 
 [traincker.app](https://traincker.app) tourne en **mode démo** (`TRAINCKER_DEMO=1`) :
-- 5 trajets de démonstration permanents (pour montrer le fonctionnement sans attendre)
+- 7 trajets de démonstration permanents (pour montrer le fonctionnement sans attendre)
 - tout trajet ajouté par un visiteur est automatiquement supprimé au bout d'1h
 - les réglages personnels (email, alertes Discord) du propriétaire du projet restent privés, jamais exposés publiquement
 
@@ -59,9 +49,9 @@ Priorité donnée à la **fonctionnalité** plutôt qu'à l'esthétique — c'es
 | Interface web | `FastAPI` + `HTMX` + `Jinja2` |
 | Base de données | `Supabase` (Postgres) |
 | Alertes | Webhook Discord, email |
-| Tests | `pytest` (137 tests) |
+| Tests | `pytest` |
 | Qualité de code | `black`, `flake8` |
-| Déploiement | Render, GitHub Actions (collecte + surveillance périodiques) |
+| Déploiement | Render, GitHub Actions (collecte périodique) |
 
 Un dashboard **Streamlit** existe toujours dans `traincker/dashboard.py` (première version du projet, conservée en local à titre historique/comparatif) mais n'est plus déployé en production — voir [Dashboard Streamlit (legacy, optionnel)](#dashboard-streamlit-legacy-optionnel).
 
@@ -114,39 +104,31 @@ pip install streamlit  # pas installé par défaut, retiré de requirements.txt
 streamlit run traincker/dashboard.py
 ```
 
-### Tests
-
-```bash
-pip install pytest
-python -m pytest tests/ -q
-```
-
 ## Structure du projet
 
 ```
 traincker/
-├── config/                 # favoris.json, parametres.json
-├── traincker/               # code source du package partagé (API, analyse, CLI...)
-│   ├── api_client.py        # wrapper autour de l'API Navitia/SNCF
-│   ├── models.py            # dataclasses Trajet, Depart, Perturbation
-│   ├── analysis.py          # calculs pandas/numpy (ponctualité, stats)
-│   ├── viz.py                # graphes matplotlib
-│   ├── monitor.py            # surveillance périodique + alertes
-│   ├── db.py                  # persistance Supabase
-│   ├── cli.py                  # interface ligne de commande
-│   └── dashboard.py            # dashboard Streamlit (legacy, non déployé)
-├── traincker_web/             # interface web FastAPI + HTMX (production)
-│   ├── main.py                  # routes FastAPI
-│   ├── templates/                # templates Jinja2
-│   └── static/                    # CSS, logos
-├── scripts/                     # scripts ponctuels (ex: génération des trajets démo)
+├── config/                # favoris.json, parametres.json
+├── traincker/              # code source du package partagé (API, analyse, CLI...)
+│   ├── api_client.py       # wrapper autour de l'API Navitia/SNCF
+│   ├── models.py           # dataclasses Trajet, Depart, Perturbation
+│   ├── analysis.py         # calculs pandas/numpy (ponctualité, stats)
+│   ├── viz.py               # graphes matplotlib
+│   ├── monitor.py           # surveillance périodique + alertes
+│   ├── db.py                 # persistance Supabase
+│   ├── cli.py                 # interface ligne de commande
+│   └── dashboard.py           # dashboard Streamlit (legacy, non déployé)
+├── traincker_web/            # interface web FastAPI + HTMX (production)
+│   ├── main.py                 # routes FastAPI
+│   ├── templates/               # templates Jinja2
+│   └── static/                   # CSS, logos
+├── scripts/                    # scripts ponctuels (ex: génération des trajets démo)
 ├── data/
-│   ├── raw/                      # réponses JSON brutes (historique)
-│   └── processed/                # CSV nettoyés pour l'analyse
-├── tests/                        # tests unitaires + tests web (pytest)
-├── .github/workflows/            # collecte + surveillance périodiques (GitHub Actions)
-├── render.yaml                   # config de déploiement Render
-└── main.py                       # point d'entrée CLI
+│   ├── raw/                     # réponses JSON brutes (historique)
+│   └── processed/               # CSV nettoyés pour l'analyse
+├── tests/                       # tests unitaires + tests web (pytest)
+├── render.yaml                  # config de déploiement Render
+└── main.py                      # point d'entrée CLI
 ```
 
 ## Roadmap

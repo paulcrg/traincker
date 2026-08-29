@@ -1,7 +1,7 @@
 # Blueprint Render : un seul service, désormais servi par traincker_web/
 # (FastAPI + HTMX) au lieu du dashboard Streamlit. Le site public tourne
 # en mode démo (TRAINCKER_DEMO) plutôt qu'en pure lecture seule : les
-# visiteurs peuvent ajouter des trajets, mais avec des limites (5 trajets
+# visiteurs peuvent ajouter des trajets, mais avec des limites (7 trajets
 # max, expiration automatique après 1h) — voir traincker_web/main.py.
 services:
   - type: web
