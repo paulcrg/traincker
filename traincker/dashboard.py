@@ -255,7 +255,7 @@ st.markdown(f'<p class="tk-caption">{t("caption", _langue)}</p>', unsafe_allow_h
 if st.session_state.mode_degrade:
     _dt_secours = datetime.fromtimestamp(st.session_state.mode_degrade)
     st.markdown(
-        f'<div class="tk-banner-degrade">Mode dégradé — l\'API SNCF ne répond pas. '
+        f'<div class="tk-banner-degrade">Mode dégradé : l\'API SNCF ne répond pas. '
         f'Dernières données connues du {_dt_secours:%d/%m à %H:%M}.</div>',
         unsafe_allow_html=True,
     )
@@ -681,11 +681,11 @@ with tab_apropos:
 **Stack** : Python, Streamlit, pandas/numpy, matplotlib, API SNCF (Navitia), Open-Meteo, Supabase.
 
 **Architecture** :
-- `api_client.py` — client HTTP vers l'API SNCF, avec timeout et gestion d'erreurs
-- `monitor.py` — surveillance périodique, alertes Discord/email, heures de silence
-- `analysis.py` / `viz.py` — statistiques de ponctualité et visualisations
-- `dashboard.py` — interface Streamlit (recherche, favoris, statistiques)
-- `db.py` — persistance partagée Supabase entre la surveillance et le dashboard hébergé
+- `api_client.py` : client HTTP vers l'API SNCF, avec timeout et gestion d'erreurs
+- `monitor.py` : surveillance périodique, alertes Discord/email, heures de silence
+- `analysis.py` / `viz.py` : statistiques de ponctualité et visualisations
+- `dashboard.py` : interface Streamlit (recherche, favoris, statistiques)
+- `db.py` : persistance partagée Supabase entre la surveillance et le dashboard hébergé
 
 **Points notables** : mode dégradé en cas de panne API, suite de tests automatisés (pytest),
 déploiement continu (GitHub Actions + Render), traduit en 5 langues.
@@ -824,7 +824,7 @@ déploiement continu (GitHub Actions + Render), traduit en 5 langues.
             for entree in entrees:
                 dt = datetime.fromisoformat(entree["horodatage"])
                 label = LIBELLES_JOURNAL.get(entree["type"], entree["type"])
-                st.markdown(f'<div class="tk-log-line">{dt:%d/%m %H:%M} — {label} : {entree["detail"]}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="tk-log-line">{dt:%d/%m %H:%M} : {label} : {entree["detail"]}</div>', unsafe_allow_html=True)
             if st.button(t("vider_historique", _langue), key="vider_historique"):
                 vider_journal()
                 st.rerun()

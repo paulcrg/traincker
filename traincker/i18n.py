@@ -94,11 +94,11 @@ TRADUCTIONS = {
         "fr": "Très grande", "en": "Very large", "de": "Sehr groß", "no": "Svært stor", "sv": "Mycket stor",
     },
     "mode_demo_actif": {
-        "fr": "Mode démo actif — les données affichées sont fictives.",
-        "en": "Demo mode active — the data shown is fictional.",
-        "de": "Demomodus aktiv — die angezeigten Daten sind fiktiv.",
-        "no": "Demomodus aktiv — dataene som vises er fiktive.",
-        "sv": "Demoläge aktivt — datan som visas är fiktiv.",
+        "fr": "Mode démo actif, les données affichées sont fictives.",
+        "en": "Demo mode active, the data shown is fictional.",
+        "de": "Demomodus aktiv, die angezeigten Daten sind fiktiv.",
+        "no": "Demomodus aktiv, dataene som vises er fiktive.",
+        "sv": "Demoläge aktivt, datan som visas är fiktiv.",
     },
     "aucune_perturbation": {
         "fr": "Aucune perturbation signalée", "en": "No disruption reported",
@@ -354,15 +354,15 @@ TRADUCTIONS = {
     },
     "favoris_lecture_seule": {
         "fr": "Les trajets favoris affichés sont ceux du propriétaire du site. La modification "
-        "est désactivée sur cette démo publique — c'est un aperçu en lecture seule.",
+        "est désactivée sur cette démo publique : c'est un aperçu en lecture seule.",
         "en": "The favorite routes shown belong to the site owner. Editing is disabled on this "
-        "public demo — this is a read-only preview.",
+        "public demo, this is a read-only preview.",
         "de": "Die angezeigten Lieblingsstrecken gehören dem Website-Betreiber. Das Bearbeiten ist "
-        "in dieser öffentlichen Demo deaktiviert — nur zur Ansicht.",
+        "in dieser öffentlichen Demo deaktiviert, nur zur Ansicht.",
         "no": "Favorittrutene som vises tilhører sideeieren. Redigering er deaktivert i denne "
-        "offentlige demoen — kun visning.",
+        "offentlige demoen, kun visning.",
         "sv": "De visade favoritresorna tillhör webbplatsens ägare. Redigering är inaktiverad i "
-        "denna offentliga demo — endast för visning.",
+        "denna offentliga demo, endast för visning.",
     },
 
     # --- Statistiques ---

@@ -4,7 +4,7 @@
 <div class="tk-card">
     {{ titre_section('pin', 'En savoir plus') | safe }}
     <div class="tk-tech-text">
-        <p>Tous les jours, je prends le train pour faire le trajet entre la maison de mes parents et mon école d'ingénieur. Et régulièrement, mon train a du retard — sans que je le sache à l'avance. Aucun moyen de le savoir autrement qu'en vérifiant l'appli SNCF à la main ou en arrivant sur le quai : pas de notification, rien.</p>
+        <p>Tous les jours, je prends le train pour rejoindre mon école d'ingénieur. Régulièrement, mon train a du retard, sans que je le sache à l'avance : aucun moyen de le savoir autrement qu'en vérifiant l'appli SNCF à la main, ou en arrivant sur le quai. Pas de notification, rien.</p>
         <p>C'est ce qui m'a donné l'idée de <strong>Traincker</strong> : une appli qui surveille mes trajets favoris en continu et m'alerte automatiquement (Discord, email) dès qu'une perturbation apparaît.</p>
         <p>Au fil du développement, le projet s'est étoffé :</p>
         <ul>
@@ -16,7 +16,7 @@
             <li>accessibilité (contraste élevé, taille de texte, thème clair)</li>
             <li>interface rapide en FastAPI + HTMX, sans rechargement de page</li>
         </ul>
-        <p>Ce projet me sert avant tout à progresser en Python (data, API, web) — mais surtout, je m'en sers vraiment, tous les jours, pour aller en cours.</p>
+        <p>Ce projet me sert avant tout à progresser en Python (data, API, web), mais surtout, je m'en sers vraiment, tous les jours, pour aller en cours.</p>
     </div>
 </div>
 
@@ -26,11 +26,11 @@
         <p><strong>Stack</strong> : Python, FastAPI, HTMX, pandas/numpy, matplotlib, API SNCF (Navitia), Supabase.</p>
         <p><strong>Architecture</strong> :</p>
         <ul>
-            <li><code>api_client.py</code> — client HTTP vers l'API SNCF, avec timeout et gestion d'erreurs</li>
-            <li><code>monitor.py</code> — surveillance périodique, alertes Discord/email, heures de silence</li>
-            <li><code>analysis.py</code> / <code>viz.py</code> — statistiques de ponctualité et visualisations</li>
-            <li><code>traincker_web/</code> — interface FastAPI + HTMX (recherche, favoris, statistiques)</li>
-            <li><code>db.py</code> — persistance partagée Supabase entre la surveillance et le site hébergé</li>
+            <li><code>api_client.py</code> : client HTTP vers l'API SNCF, avec timeout et gestion d'erreurs</li>
+            <li><code>monitor.py</code> : surveillance périodique, alertes Discord/email, heures de silence</li>
+            <li><code>analysis.py</code> / <code>viz.py</code> : statistiques de ponctualité et visualisations</li>
+            <li><code>traincker_web/</code> : interface FastAPI + HTMX (recherche, favoris, statistiques)</li>
+            <li><code>db.py</code> : persistance partagée Supabase entre la surveillance et le site hébergé</li>
         </ul>
         <p><strong>Points notables</strong> : mode dégradé en cas de panne API, suite de tests automatisés (pytest), déploiement continu (GitHub Actions + Render).</p>
     </div>
@@ -135,7 +135,7 @@
 
 <div class="tk-card">
     {{ titre_section('shield', 'Accessibilité') | safe }}
-    <p class="tk-hint">Ces réglages ne concernent que ton propre navigateur (via un cookie) — ils ne changent rien pour les autres visiteurs.</p>
+    <p class="tk-hint">Ces réglages ne concernent que ton propre navigateur (via un cookie) : ils ne changent rien pour les autres visiteurs.</p>
     <form
         hx-post="/apropos/parametres/accessibilite"
         hx-trigger="change"

@@ -127,7 +127,7 @@ def _limite_atteinte(request: Request, nom_action: str, max_requetes: int, fenet
 def _reponse_limite_debit(request: Request) -> Response:
     return render(
         "_erreur.html",
-        {"request": request, "message": "Trop de requêtes en peu de temps — réessaie dans un instant."},
+        {"request": request, "message": "Trop de requêtes en peu de temps, réessaie dans un instant."},
     )
 
 # Mode démo publique : ajout de trajets autorisé, mais limité et
@@ -543,7 +543,7 @@ def ajouter_favori(
                 "favoris": _construire_contexte_favoris(),
                 "erreur_limite": (
                     f"Limite de {DEMO_MAX_TRAJETS} trajets ajoutés atteinte en mode démo "
-                    "(les trajets de démonstration ne comptent pas) — supprime-en un ou "
+                    "(les trajets de démonstration ne comptent pas) : supprime-en un ou "
                     "attends qu'un trajet ajouté expire, au bout d'1h."
                 ),
             },

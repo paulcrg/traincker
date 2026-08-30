@@ -157,8 +157,8 @@ def verifier_favoris(client: NavitiaClient = None) -> None:
                 if not deja_recente:
                     msg_meteo = (
                         f"Alerte météo pour « {trajet.nom} »\n"
-                        f"{meteo['condition']} à {trajet.gare_depart_nom} "
-                        f"({meteo['temperature']}°C) — le trafic pourrait être affecté."
+                        f"{meteo['condition']} à {trajet.gare_depart_nom}, "
+                        f"{meteo['temperature']}°C : le trafic pourrait être affecté."
                     )
                     _envoyer_alerte(msg_meteo, f"Traincker - météo {trajet.nom}", parametres)
                     etat[cle_meteo] = maintenant.isoformat()
