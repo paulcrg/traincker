@@ -573,6 +573,18 @@ def toggle_favori(request: Request, index: int):
 
     favoris = charger_favoris()
     if 0 <= index < len(favoris):
+        if MODE_DEMO and favoris[index].cree_le is None:
+            return render(
+                "_favoris_liste.html",
+                {
+                    "request": request,
+                    "favoris": _construire_contexte_favoris(),
+                    "erreur_limite": (
+                        "Ce trajet fait partie des trajets de démonstration permanents "
+                        "et ne peut pas être désactivé."
+                    ),
+                },
+            )
         favoris[index].actif = not favoris[index].actif
         sauvegarder_favoris(favoris)
     return render(
@@ -588,6 +600,18 @@ def supprimer_favori(request: Request, index: int):
 
     favoris = charger_favoris()
     if 0 <= index < len(favoris):
+        if MODE_DEMO and favoris[index].cree_le is None:
+            return render(
+                "_favoris_liste.html",
+                {
+                    "request": request,
+                    "favoris": _construire_contexte_favoris(),
+                    "erreur_limite": (
+                        "Ce trajet fait partie des trajets de démonstration permanents "
+                        "et ne peut pas être supprimé."
+                    ),
+                },
+            )
         favoris.pop(index)
         sauvegarder_favoris(favoris)
     return render(

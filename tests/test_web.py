@@ -611,6 +611,42 @@ def test_demo_les_trajets_permanents_ne_comptent_pas_dans_la_limite(client, favo
     assert favoris_memoire["trajets"][-1].cree_le is not None
 
 
+def test_demo_empeche_la_suppression_d_un_trajet_permanent(client, favoris_memoire, monkeypatch):
+    monkeypatch.setattr(main, "MODE_DEMO", True)
+    favoris_memoire["trajets"] = [Trajet("Demo0", "A0", "GA0", "B0", "GB0")]
+    r = client.delete("/favoris/0")
+    assert r.status_code == 200
+    assert "ne peut pas être supprimé" in r.text
+    assert len(favoris_memoire["trajets"]) == 1
+
+
+def test_demo_empeche_la_desactivation_d_un_trajet_permanent(client, favoris_memoire, monkeypatch):
+    monkeypatch.setattr(main, "MODE_DEMO", True)
+    favoris_memoire["trajets"] = [Trajet("Demo0", "A0", "GA0", "B0", "GB0")]
+    r = client.post("/favoris/0/toggle")
+    assert r.status_code == 200
+    assert "ne peut pas être désactivé" in r.text
+    assert favoris_memoire["trajets"][0].actif is True
+
+
+def test_demo_autorise_la_suppression_d_un_trajet_temporaire(client, favoris_memoire, monkeypatch):
+    monkeypatch.setattr(main, "MODE_DEMO", True)
+    maintenant = datetime.now(timezone.utc).isoformat()
+    favoris_memoire["trajets"] = [Trajet("Ajout", "A0", "GA0", "B0", "GB0", cree_le=maintenant)]
+    r = client.delete("/favoris/0")
+    assert r.status_code == 200
+    assert "ne peut pas être supprimé" not in r.text
+    assert len(favoris_memoire["trajets"]) == 0
+
+
+def test_hors_demo_autorise_la_suppression_d_un_trajet_permanent(client, favoris_memoire, monkeypatch):
+    monkeypatch.setattr(main, "MODE_DEMO", False)
+    favoris_memoire["trajets"] = [Trajet("Perso", "A0", "GA0", "B0", "GB0")]
+    r = client.delete("/favoris/0")
+    assert r.status_code == 200
+    assert len(favoris_memoire["trajets"]) == 0
+
+
 # --- Journal et logs ---------------------------------------------------------
 
 def test_journal_enregistre_une_recherche_reussie(client, monkeypatch):
